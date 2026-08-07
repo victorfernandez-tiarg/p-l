@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Cashflow &middot; Tesoreria</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div class="topbar-brand">
+        <div class="topbar-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6" y1="20" x2="6" y2="14"/>
+            <line x1="2" y1="20" x2="22" y2="20"/>
+          </svg>
+        </div>
+        <div>
+          <p class="topbar-overline">TESORERIA INTERNA</p>
+          <h1 class="topbar-title">Dashboard de Cashflow Historico</h1>
+        </div>
+      </div>
+      <div class="topbar-actions">
+        <span class="source-badge" id="sourceBadge">cargando&hellip;</span>
+        <button id="refreshBtn" class="btn btn-outline">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>
+          Actualizar
+        </button>
+      </div>
+    </header>
+
+    <main class="main">
+
+      <!-- TOOLBAR: IMPORT / EXPORT -->
+      <section class="panel toolbar-section">
+        <p class="section-label">Datos</p>
+        <div class="toolbar">
+          <div class="toolbar-group-left">
+            <label class="btn btn-primary" for="excelFile">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              Importar Excel
+            </label>
+            <input id="excelFile" type="file" accept=".xlsx,.xls" aria-label="Seleccionar archivo Excel" />
+            <span id="fileName" class="file-name-badge">Sin archivo seleccionado</span>
+          </div>
+          <div class="toolbar-group-right">
+            <button id="exportCsvBtn" class="btn btn-secondary">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              Exportar CSV
+            </button>
+            <button id="resetUploadBtn" class="btn btn-ghost">Limpiar fuente</button>
+          </div>
+        </div>
+        <div id="uploadBanner" class="upload-banner" style="display:none"></div>
+      </section>
+
+      <!-- KPI CARDS -->
+      <section class="metrics-grid" id="metrics"></section>
+
+      <!-- FILTROS -->
+      <section class="panel filters-section">
+        <p class="section-label">Filtros</p>
+        <div class="filters-grid">
+          <label class="filter-label">
+            Banco
+            <select id="bankFilter"></select>
+          </label>
+          <label class="filter-label">
+            Agrupacion Original
+            <select id="agrupacionFilter"></select>
+          </label>
+          <label class="filter-label">
+            Rubro Original
+            <select id="rubroFilter"></select>
+          </label>
+          <label class="filter-label">
+            Original
+            <select id="originalFilter"></select>
+          </label>
+          <label class="filter-label">
+            Item
+            <select id="itemFilter"></select>
+          </label>
+          <label class="filter-label">
+            Desde Periodo
+            <select id="fromPeriod"></select>
+          </label>
+          <label class="filter-label">
+            Hasta Periodo
+            <select id="toPeriod"></select>
+          </label>
+        </div>
+      </section>
+
+      <!-- GRAFICOS: Cashflow principal (ancho completo) -->
+      <div class="panel chart-card">
+        <div class="chart-header">
+          <div>
+            <h2>Flujo de Caja Mensual</h2>
+            <span class="chart-subtitle">Ingresos &middot; Egresos &middot; Neto — hover para detalle por mes</span>
+          </div>
+        </div>
+        <canvas id="trendChart"></canvas>
+      </div>
+
+      <!-- GRAFICOS: Rubro + Agrupacion side by side -->
+      <section class="charts-grid">
+        <div class="panel chart-card chart-interactive">
+          <div class="chart-header">
+            <h2>Top Rubros Originales</h2>
+            <span class="chart-subtitle">Click en barra &rarr; filtra la tabla</span>
+          </div>
+          <canvas id="rubroChart"></canvas>
+        </div>
+        <div class="panel chart-card chart-interactive">
+          <div class="chart-header">
+            <h2>Composicion por Agrupacion</h2>
+            <span class="chart-subtitle">Click en sector &rarr; filtra la tabla</span>
+          </div>
+          <div class="doughnut-wrapper">
+            <canvas id="agrupacionChart"></canvas>
+          </div>
+        </div>
+      </section>
+
+      <!-- TABLA DINAMICA -->
+      <section class="panel table-section">
+        <div class="table-header">
+          <div>
+            <h2>Tabla Dinamica</h2>
+            <p class="chart-subtitle">Jerarquia &rarr; Agrupacion &rarr; Rubro &rarr; Original &rarr; Item por Periodo</p>
+          </div>
+          <label class="filter-label" style="min-width:175px">
+            Nivel de fila
+            <select id="rowLevel">
+              <option value="Agrupacion Original">Agrupacion Original</option>
+              <option value="Rubro Original">Rubro Original</option>
+              <option value="Original">Original</option>
+              <option value="Item">Item</option>
+            </select>
+          </label>
+        </div>
+        <div class="table-wrap">
+          <table id="pivotTable"></table>
+        </div>
+      </section>
+
+      <footer class="status-bar" id="status"></footer>
+
+    </main>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script src="app.js" type="module"></script>
+  </body>
+</html>

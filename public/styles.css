@@ -1,0 +1,515 @@
+﻿/* ================================================================
+   CASHFLOW DASHBOARD - styles.css
+   Estrategia: Mobile-first + progressive enhancement
+   ================================================================ */
+
+/* --- DESIGN TOKENS ---------------------------------------------- */
+:root {
+  --bg:          #eef2f7;
+  --white:       #ffffff;
+  --navy-900:    #0f1e3d;
+  --navy-800:    #1a3060;
+  --blue-700:    #1d4ed8;
+  --blue-600:    #2563eb;
+  --blue-500:    #3b82f6;
+  --blue-100:    #dbeafe;
+  --blue-50:     #eff6ff;
+  --text-900:    #0f172a;
+  --text-700:    #1e293b;
+  --text-600:    #334155;
+  --text-500:    #64748b;
+  --text-400:    #94a3b8;
+  --text-300:    #cbd5e1;
+  --border:      #e2e8f0;
+  --border-hi:   #bfdbfe;
+  --green:       #059669;
+  --green-light: #d1fae5;
+  --red:         #dc2626;
+  --red-light:   #fee2e2;
+  --mono:  "IBM Plex Mono", "Courier New", monospace;
+  --sans:  "Inter", "Space Grotesk", system-ui, -apple-system, sans-serif;
+  --radius-sm:  7px;
+  --radius:     10px;
+  --radius-lg:  14px;
+  --radius-xl:  18px;
+  --shadow-sm:  0 1px 3px rgba(15,23,42,.07), 0 1px 2px rgba(15,23,42,.04);
+  --shadow:     0 4px 8px -2px rgba(15,23,42,.07), 0 2px 4px -2px rgba(15,23,42,.04);
+  --shadow-lg:  0 12px 24px -4px rgba(15,23,42,.10), 0 4px 8px -2px rgba(15,23,42,.05);
+  --topbar-h:   60px;
+}
+
+/* --- RESET ------------------------------------------------------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+/* FIX #1: `clip` es mas fuerte que `hidden` para bloquear overflow
+   sin crear un scroll container (lo cual romperia position:sticky) */
+html { overflow-x: clip; }
+
+/* --- SCROLLBAR --------------------------------------------------- */
+::-webkit-scrollbar              { width:6px; height:6px; }
+::-webkit-scrollbar-track        { background:transparent; }
+::-webkit-scrollbar-thumb        { background:var(--text-300); border-radius:99px; }
+::-webkit-scrollbar-thumb:hover  { background:var(--blue-500); }
+
+/* --- BASE (mobile-first base) ------------------------------------ */
+body {
+  font-family: var(--sans);
+  background: var(--bg);
+  color: var(--text-900);
+  min-height: 100vh;
+  line-height: 1.55;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: clip; /* FIX #1: duplicado en body por compatibilidad Safari */
+}
+
+/* --- TOPBAR ----------------------------------------------------- */
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: var(--topbar-h);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 clamp(12px, 3vw, 40px);
+  background: var(--navy-900);
+  border-bottom: 1px solid rgba(255,255,255,.06);
+  box-shadow: 0 2px 10px rgba(0,0,0,.28);
+  overflow: hidden; /* FIX: evita que brand muy largo expanda la barra */
+}
+
+.topbar-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;           /* FIX: crece/encoge con flex en lugar de tener ancho fijo */
+  min-width: 0;      /* FIX: permite truncar hijos dentro de flex */
+}
+
+.topbar-icon {
+  flex-shrink: 0;    /* El icono nunca se achica */
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--blue-500), var(--blue-700));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-overline {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: rgba(255,255,255,.6);
+  text-transform: uppercase;
+  line-height: 1;
+  margin-bottom: 3px;
+}
+
+.topbar-title {
+  /* FIX: clamp() - escala entre 13px (movil) y 15px (desktop) */
+  font-size: clamp(13px, 2vw, 15px);
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;       /* FIX: trunca el titulo en pantallas angostas */
+  text-overflow: ellipsis;
+  line-height: 1.2;
+}
+
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.source-badge {
+  display: none; /* FIX mobile-first: oculto en mobile, visible en >640px */
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  background: rgba(255,255,255,.10);
+  border: 1px solid rgba(255,255,255,.20);
+  color: rgba(255,255,255,.85);
+  white-space: nowrap;
+}
+
+/* --- MAIN CONTENT ----------------------------------------------- */
+.main {
+  width: 100%;
+  max-width: 1320px;
+  margin: 16px auto;
+  /* FIX: padding fluido - 10px en movil, 32px en desktop */
+  padding: 0 clamp(10px, 3vw, 32px) 40px;
+  display: grid;
+  gap: 14px;
+}
+
+/* --- PANEL ------------------------------------------------------ */
+.panel {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: clamp(14px, 2.5vw, 20px);
+  box-shadow: var(--shadow-sm);
+  min-width: 0;       /* FIX #2: sin esto, el panel se expande con su contenido */
+  overflow: hidden;   /* FIX #2: contiene cualquier overflow de hijos */
+}
+
+/* --- SECTION LABEL --------------------------------------------- */
+.section-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--text-400);
+  margin-bottom: 12px;
+}
+
+/* --- TOOLBAR ---------------------------------------------------- */
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  flex-wrap: wrap; /* FIX: los grupos se apilan en pantallas angostas */
+  gap: 8px;
+  row-gap: 10px;
+}
+
+.toolbar-group-left {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;       /* FIX: crece para ocupar espacio disponible */
+  min-width: 0;  /* FIX: permite que hijos se trunquen */
+}
+
+.toolbar-group-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+#excelFile { display: none; }
+
+.file-name-badge {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-500);
+  /* FIX: ancho relativo, no fijo en px */
+  max-width: min(220px, 40vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 10px;
+  height: 34px;
+}
+
+/* --- BUTTONS ---------------------------------------------------- */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 36px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1px solid transparent;
+  white-space: nowrap;
+  text-decoration: none;
+  transition: all .14s ease;
+  user-select: none;
+  flex-shrink: 0;
+}
+.btn:active   { transform: translateY(1px); }
+.btn:disabled { opacity: .45; cursor: not-allowed; pointer-events: none; }
+
+.btn-primary  { background: var(--navy-900); color: #fff; border-color: var(--navy-900); }
+.btn-primary:hover  { background: var(--navy-800); box-shadow: 0 2px 8px rgba(15,30,61,.28); }
+.btn-secondary { background: var(--white); color: var(--blue-600); border-color: var(--border-hi); }
+.btn-secondary:hover { background: var(--blue-50); border-color: var(--blue-500); }
+.btn-ghost    { background: transparent; color: var(--text-500); border-color: var(--border); }
+.btn-ghost:hover { background: var(--bg); color: var(--text-700); }
+.btn-outline  { background: rgba(255,255,255,.08); color: rgba(255,255,255,.88); border-color: rgba(255,255,255,.18); }
+.btn-outline:hover { background: rgba(255,255,255,.16); color: #fff; }
+
+/* --- BANNERS ---------------------------------------------------- */
+.upload-banner { margin-top:12px; padding:10px 14px; border-radius:var(--radius-sm); font-size:13px; font-weight:500; }
+.upload-banner.ok    { background:var(--green-light); color:#065f46; border:1px solid #6ee7b7; }
+.upload-banner.error { background:var(--red-light);   color:#991b1b; border:1px solid #fca5a5; }
+
+/* --- KPI CARDS (mobile-first: 2 columnas) ----------------------- */
+.metrics-grid {
+  display: grid;
+  /* FIX mobile-first: empieza con 2 columnas fluidas */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.metric-card {
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--card-accent, var(--blue-500));
+  border-radius: var(--radius-lg);
+  padding: 14px 16px 14px 14px;
+  box-shadow: var(--shadow-sm);
+  min-width: 0;     /* FIX #2: clave para que grid no desborde */
+  overflow: hidden; /* FIX: contiene numeros grandes */
+  transition: box-shadow .18s, transform .14s;
+}
+.metric-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+
+.metric-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-500);
+  margin-bottom: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.metric-value {
+  font-family: var(--mono);
+  /* FIX: clamp() - 16px en mobile, escala hasta 26px en desktop */
+  font-size: clamp(16px, 2.2vw, 26px);
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  overflow: hidden;
+  text-overflow: ellipsis; /* FIX: trunca numeros grandes en tarjetas angostas */
+  white-space: nowrap;
+}
+
+/* --- VALUE COLORS ----------------------------------------------- */
+.positive { color: var(--green); }
+.negative { color: var(--red);   }
+.mono     { font-family: var(--mono); color: var(--text-900); }
+
+/* --- FILTERS (mobile-first: 2 columnas) ------------------------- */
+.filters-grid {
+  display: grid;
+  /* FIX #3 (ROOT CAUSE): mobile-first 2 cols con minmax(0,1fr)
+     `minmax(0,1fr)` fuerza el minimo a 0 en lugar de `auto`,
+     lo que PERMITE que las columnas se achiquen por debajo del
+     contenido y evita el overflow horizontal. */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.filter-label {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-500);
+  min-width: 0; /* FIX: permite que el label encoja en el grid */
+}
+
+select {
+  /* FIX: width:100% llena la celda del grid; sin esto el select
+     usa su ancho intrinseco (contenido mas largo) y desborda */
+  width: 100%;
+  min-width: 0;
+  background: var(--white);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  height: 34px;
+  padding: 0 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--text-900);
+  cursor: pointer;
+  appearance: auto;
+  transition: border-color .14s, box-shadow .14s;
+}
+select:hover { border-color: var(--blue-500); }
+select:focus { outline:none; border-color:var(--blue-500); box-shadow:0 0 0 3px rgba(59,130,246,.12); }
+
+/* --- CHARTS (mobile-first: columna unica) ----------------------- */
+.charts-grid {
+  display: grid;
+  /* FIX mobile-first: empieza apilado */
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.chart-card { display:flex; flex-direction:column; }
+
+.chart-header { margin-bottom: 14px; }
+.chart-header h2 { font-size:14px; font-weight:700; color:var(--text-900); margin-bottom:2px; }
+.chart-subtitle  { display:block; font-size:11px; color:var(--text-500); }
+
+/* --- TABLE ------------------------------------------------------ */
+.table-section { padding-bottom: 0; }
+
+.table-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap; /* FIX: selector nivel-fila baja en mobile */
+}
+.table-header h2 { font-size:14px; font-weight:700; color:var(--text-900); margin-bottom:2px; }
+
+.table-wrap {
+  overflow: auto; /* scroll SOLO dentro del contenedor de la tabla */
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  max-height: 500px;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  /* FIX: min-width garantiza legibilidad; el scroll lo maneja .table-wrap */
+  min-width: 620px;
+  background: var(--white);
+}
+
+thead { position:sticky; top:0; z-index:2; }
+
+th {
+  background: #f8fafc;
+  padding: 9px 12px;
+  font-family: var(--sans);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  color: var(--text-500);
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 2px solid var(--border);
+}
+th:first-child { text-align: left; }
+
+td {
+  padding: 8px 12px;
+  font-family: var(--mono);
+  font-size: 12px;
+  text-align: right;
+  white-space: nowrap;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--text-700);
+  transition: background .1s;
+}
+td:first-child { font-family:var(--sans); font-size:13px; font-weight:500; text-align:left; color:var(--text-900); }
+tbody tr:hover td { background: var(--blue-50); }
+tbody tr:last-child td { border-bottom: none; }
+
+/* --- STATUS BAR ------------------------------------------------- */
+.status-bar {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text-400);
+  padding: 10px 2px 0;
+  border-top: 1px solid var(--border);
+}
+
+/* --- ANIMATIONS ------------------------------------------------- */
+@keyframes enter {
+  from { opacity:0; transform:translateY(6px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+.topbar           { animation: enter 200ms ease both; }
+.toolbar-section  { animation: enter 260ms ease both; }
+.metrics-grid     { animation: enter 300ms 30ms ease both; }
+.filters-section  { animation: enter 300ms 50ms ease both; }
+.charts-grid      { animation: enter 300ms 70ms ease both; }
+.table-section    { animation: enter 300ms 90ms ease both; }
+
+/* ================================================================
+   PROGRESSIVE ENHANCEMENT - breakpoints de menor a mayor
+   ================================================================ */
+
+/* sm: 480px+ */
+@media (min-width: 480px) {
+  .metrics-grid { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+/* md: 640px+ */
+@media (min-width: 640px) {
+  .source-badge   { display: inline-flex; align-items: center; }
+  .filters-grid   { grid-template-columns: repeat(3, minmax(0,1fr)); }
+  .metrics-grid   { grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+/* lg: 900px+ */
+@media (min-width: 900px) {
+  .metrics-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  .filters-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+}
+
+/* xl: 1000px+ */
+@media (min-width: 1000px) {
+  /* Charts side-by-side solo cuando hay espacio real */
+  .charts-grid { grid-template-columns: minmax(0,3fr) minmax(0,2fr); }
+}
+
+/* 2xl: 1100px+ */
+@media (min-width: 1100px) {
+  .filters-grid { grid-template-columns: repeat(7, minmax(0,1fr)); }
+}
+
+/* --- TOPBAR small screen ---------------------------------------- */
+@media (max-width: 640px) {
+  .topbar         { height: 52px; padding: 0 12px; }
+  .topbar-icon    { width: 30px; height: 30px; }
+  .topbar-overline { display: none; }
+}
+
+/* --- TOOLBAR small screen --------------------------------------- */
+@media (max-width: 540px) {
+  .toolbar              { flex-direction: column; align-items: stretch; }
+  .toolbar-group-left,
+  .toolbar-group-right  { width: 100%; }
+  .file-name-badge      { max-width: 100%; }
+}
+
+/* --- CHART INTERACTIVE CURSOR ----------------------------------- */
+.chart-interactive canvas { cursor: pointer; }
+
+/* --- DOUGHNUT WRAPPER (centers donut in panel) ------------------ */
+.doughnut-wrapper {
+  position: relative;
+  /* max-height keeps the donut from growing too tall */
+  max-height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* --- CHART LEGEND BADGE ----------------------------------------- */
+.chart-legend-hint {
+  font-size: 10px;
+  color: var(--text-400);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+/* --- CHART INTERACTIVE CURSOR */.chart-interactive canvas { cursor: pointer; }.doughnut-wrapper { position:relative; max-height:340px; display:flex; align-items:center; justify-content:center; }
