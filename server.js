@@ -2,6 +2,7 @@ import express from "express";
 import dotenv from "dotenv";
 import { readFile } from "node:fs/promises";
 import { parse } from "csv-parse/sync";
+import { google } from "googleapis";
 import xlsx from "xlsx";
 
 dotenv.config();
@@ -195,9 +196,61 @@ app.post("/api/reset-upload", (req, res) => {
   return res.json({ source: "reset", message: "Fuente subida limpiada." });
 });
 
+// Lee la primera hoja del spreadsheet usando Service Account (sin OAuth, sin expiración)
+async function readFromServiceAccount() {
+  const auth = new google.auth.GoogleAuth({
+    credentials: {
+      client_email: process.env.GOOGLE_SHEETS_CLIENT_EMAIL,
+      // dotenv guarda los \n como literal; hay que convertirlos a saltos reales
+      private_key: (process.env.GOOGLE_SHEETS_PRIVATE_KEY || "").replace(/\\n/g, "\n"),
+    },
+    scopes: ["https://www.googleapis.com/auth/spreadsheets.readonly"],
+  });
+
+  const sheets = google.sheets({ version: "v4", auth });
+  const spreadsheetId = process.env.GOOGLE_SHEETS_SPREADSHEET_ID;
+
+  // Obtiene el nombre de la primera pestaña (o usa la variable GOOGLE_SHEETS_SHEET_NAME si está seteada)
+  const sheetName = process.env.GOOGLE_SHEETS_SHEET_NAME || await (async () => {
+    const meta = await sheets.spreadsheets.get({ spreadsheetId, fields: "sheets.properties.title" });
+    return meta.data.sheets?.[0]?.properties?.title ?? "Sheet1";
+  })();
+
+  const response = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: sheetName,
+    valueRenderOption: "FORMATTED_VALUE", // devuelve strings con el formato del cell, no seriales
+  });
+
+  const [headers, ...dataRows] = response.data.values ?? [];
+  if (!headers?.length) return [];
+
+  const jsonRows = dataRows.map((row) => {
+    const obj = {};
+    headers.forEach((h, i) => { obj[String(h).trim()] = row[i] ?? ""; });
+    return obj;
+  });
+
+  return normalizeCsvRows(jsonRows);
+}
+
 app.get("/api/movements", async (req, res) => {
   if (uploadedRows !== null) {
     return res.json({ source: "uploaded-excel", rows: uploadedRows });
+  }
+
+  // Service Account tiene prioridad sobre CSV público y archivo local
+  if (process.env.GOOGLE_SHEETS_CLIENT_EMAIL && process.env.GOOGLE_SHEETS_SPREADSHEET_ID) {
+    try {
+      const rows = await readFromServiceAccount();
+      return res.json({ source: "google-sheets-api", rows });
+    } catch (error) {
+      return res.status(500).json({
+        source: "error",
+        message: "Error leyendo Google Sheets via Service Account.",
+        detail: String(error),
+      });
+    }
   }
 
   const localCsvPath = process.env.SHEETS_LOCAL_CSV_PATH;
