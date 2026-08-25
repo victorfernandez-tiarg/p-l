@@ -453,6 +453,35 @@ select:focus { outline:none; border-color:var(--blue-500); box-shadow:0 0 0 3px 
   border-color: var(--navy-900);
 }
 
+.composition-controls {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.composition-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-500);
+}
+
+.composition-wrapper {
+  position: relative;
+  min-height: 280px;
+  height: 320px;
+}
+
+.composition-wrapper canvas {
+  width: 100% !important;
+  height: 100% !important;
+}
+
 /* --- TABLE ------------------------------------------------------ */
 .table-section { padding-bottom: 0; }
 
@@ -465,6 +494,69 @@ select:focus { outline:none; border-color:var(--blue-500); box-shadow:0 0 0 3px 
   flex-wrap: wrap; /* FIX: selector nivel-fila baja en mobile */
 }
 .table-header h2 { font-size:14px; font-weight:700; color:var(--text-900); margin-bottom:2px; }
+
+.pivot-order-wrap {
+  margin-top: 8px;
+}
+
+.pivot-order-label {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--text-500);
+  margin-bottom: 6px;
+}
+
+.pivot-order-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.pivot-order-card {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--blue-50);
+  border: 1px solid var(--border-hi);
+  border-radius: 10px;
+  padding: 6px 8px;
+}
+
+.pivot-order-card-name {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--blue-700);
+}
+
+.pivot-order-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.pivot-order-btn {
+  width: 22px;
+  height: 22px;
+  border: 1px solid var(--border-hi);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--blue-700);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.pivot-order-btn:disabled {
+  opacity: .4;
+  cursor: not-allowed;
+}
+
+.pivot-order-btn:hover:not(:disabled) {
+  background: var(--blue-100);
+}
 
 .table-wrap {
   overflow: auto; /* scroll SOLO dentro del contenedor de la tabla */
@@ -607,7 +699,7 @@ tbody tr:last-child td { border-bottom: none; }
 
 /* lg: 900px+ */
 @media (min-width: 900px) {
-  .metrics-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
+  .metrics-grid { grid-template-columns: repeat(3, minmax(0,1fr)); }
   .filters-grid { grid-template-columns: repeat(4, minmax(0,1fr)); }
 }
 
@@ -627,6 +719,16 @@ tbody tr:last-child td { border-bottom: none; }
   .topbar         { height: 52px; padding: 0 12px; }
   .topbar-logo    { height: 30px; }
   .topbar-overline { display: none; }
+  .composition-controls { grid-template-columns: 1fr; }
+  #trendChart,
+  #rubroChart {
+    height: 240px !important;
+    max-height: 240px;
+  }
+  .composition-wrapper {
+    min-height: 240px;
+    height: 260px;
+  }
 }
 
 /* --- TOOLBAR small screen --------------------------------------- */
@@ -640,14 +742,10 @@ tbody tr:last-child td { border-bottom: none; }
 /* --- CHART INTERACTIVE CURSOR ----------------------------------- */
 .chart-interactive canvas { cursor: pointer; }
 
-/* --- DOUGHNUT WRAPPER (centers donut in panel) ------------------ */
+/* --- CHART WRAPPER ---------------------------------------------- */
 .doughnut-wrapper {
   position: relative;
-  /* max-height keeps the donut from growing too tall */
-  max-height: 340px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  min-height: 340px;
 }
 
 /* --- CHART LEGEND BADGE ----------------------------------------- */
@@ -660,7 +758,7 @@ tbody tr:last-child td { border-bottom: none; }
   white-space: nowrap;
 }
 
-/* --- CHART INTERACTIVE CURSOR */.chart-interactive canvas { cursor: pointer; }.doughnut-wrapper { position:relative; max-height:340px; display:flex; align-items:center; justify-content:center; }
+/* --- CHART INTERACTIVE CURSOR */.chart-interactive canvas { cursor: pointer; }
 
 /* --- MODAL DETALLE MOVIMIENTOS ---------------------------------- */
 .mov-modal-overlay {
@@ -687,8 +785,8 @@ tbody tr:last-child td { border-bottom: none; }
   border-radius: var(--radius-xl);
   box-shadow: 0 24px 60px rgba(10,18,40,0.22);
   width: 100%;
-  max-width: 900px;
-  max-height: 85vh;
+  max-width: 1120px;
+  max-height: 92vh;
   display: flex;
   flex-direction: column;
   animation: slideUp 200ms ease;
@@ -741,6 +839,33 @@ tbody tr:last-child td { border-bottom: none; }
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   flex-wrap: wrap;
+}
+
+.mov-modal-chart {
+  padding: 12px 22px 8px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.mov-modal-chart-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+
+.mov-modal-chart-head h3 {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-900);
+}
+
+.mov-modal-chart-canvas-wrap {
+  position: relative;
+  min-height: 180px;
+  max-height: 240px;
 }
 
 .mov-summary-chip {
@@ -809,8 +934,15 @@ tbody tr:last-child td { border-bottom: none; }
 
 #movModalTable tbody tr:hover td { background: var(--blue-50); }
 
+#trendChart,
+#rubroChart {
+  width: 100% !important;
+  height: 300px !important;
+  max-height: 300px;
+}
+
 #trendChart { cursor: pointer; }
-#waterfallChart { cursor: pointer; }
+#movModalWaterfall { cursor: pointer; }
 
 /* --- MULTI-SELECT WIDGET --------------------------------------- */
 .ms { position: relative; display: flex; align-items: stretch; gap: 3px; }

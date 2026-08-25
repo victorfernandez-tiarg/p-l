@@ -37,33 +37,7 @@
         <button type="button" class="tab-btn" data-tab="movementsTab">Detalle de movimientos</button>
       </nav>
 
-      <!-- TOOLBAR: IMPORT / EXPORT -->
-      <section class="panel toolbar-section">
-        <p class="section-label">Datos</p>
-        <div class="toolbar">
-          <div class="toolbar-group-left">
-            <label class="btn btn-primary" for="excelFile">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
-              Importar Excel
-            </label>
-            <input id="excelFile" type="file" accept=".xlsx,.xls" aria-label="Seleccionar archivo Excel" />
-            <span id="fileName" class="file-name-badge">Sin archivo seleccionado</span>
-          </div>
-          <div class="toolbar-group-right">
-            <button id="exportCsvBtn" class="btn btn-secondary">
-              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-              Exportar CSV
-            </button>
-            <button id="resetUploadBtn" class="btn btn-ghost">Limpiar fuente</button>
-          </div>
-        </div>
-        <div id="uploadBanner" class="upload-banner" style="display:none"></div>
-      </section>
-
       <section id="dashboardTab" class="tab-pane tab-pane-active" aria-label="Dashboard">
-        <!-- KPI CARDS -->
-        <section class="metrics-grid" id="metrics"></section>
-
         <!-- FILTROS -->
         <section class="panel filters-section">
           <p class="section-label">Filtros</p>
@@ -104,7 +78,7 @@
           <div class="chart-header">
             <div>
               <h2>Flujo de Caja Mensual</h2>
-              <span class="chart-subtitle">Ingresos &middot; Egresos &middot; Neto — hover para detalle por mes</span>
+              <span class="chart-subtitle">Neto mensual — hover para detalle por mes</span>
             </div>
           </div>
           <canvas id="trendChart"></canvas>
@@ -112,49 +86,99 @@
 
         <div class="panel chart-card chart-interactive">
           <div class="chart-header">
-            <div>
-              <h2>Variacion Neta Mensual (Cascada)</h2>
-              <span class="chart-subtitle">Cada barra muestra el impacto del mes sobre el acumulado &middot; Click en mes para ver movimientos</span>
+            <div class="donut-header-main">
+              <h2 id="donutTitle">Cascada de Flujo por Agrupacion</h2>
+              <span class="chart-subtitle" id="donutSubtitle">Impacto acumulado del flujo segun los filtros activos</span>
             </div>
           </div>
-          <canvas id="waterfallChart"></canvas>
+          <div class="composition-controls" aria-label="Criterios de la cascada de flujo">
+            <label>
+              Criterio
+              <select id="compositionGroupBy">
+                <option value="Agrupacion Original">Agrupacion</option>
+                <option value="Rubro Original">Rubro</option>
+                <option value="Original">Original</option>
+                <option value="Item">Item</option>
+              </select>
+            </label>
+            <label>
+              Metrica
+              <select id="compositionMetric">
+                <option value="net">Neto</option>
+                <option value="turnover">Volumen (Ing+Egr)</option>
+                <option value="inflow">Ingresos</option>
+                <option value="outflow">Egresos</option>
+              </select>
+            </label>
+            <label>
+              Top
+              <select id="compositionTopN">
+                <option value="8">8</option>
+                <option value="12" selected>12</option>
+                <option value="20">20</option>
+                <option value="0">Todos</option>
+              </select>
+            </label>
+          </div>
+          <div class="composition-wrapper">
+            <canvas id="agrupacionChart"></canvas>
+          </div>
         </div>
 
-        <!-- GRAFICOS: Rubro + Agrupacion side by side -->
-        <section class="charts-grid">
-          <div class="panel chart-card chart-interactive">
-            <div class="chart-header">
-              <h2>Top Rubros Originales</h2>
-              <span class="chart-subtitle">Click en barra &rarr; filtra la tabla</span>
-            </div>
-            <canvas id="rubroChart"></canvas>
+        <div class="panel chart-card chart-interactive">
+          <div class="chart-header">
+            <h2>Top Rubros Originales</h2>
+            <span class="chart-subtitle">Click en barra &rarr; filtra la tabla</span>
           </div>
-          <div class="panel chart-card chart-interactive">
-            <div class="chart-header">
-              <div class="donut-header-main">
-                <h2 id="donutTitle">Composicion por Agrupacion</h2>
-                <span class="chart-subtitle" id="donutSubtitle">Click en sector para desglosar</span>
-              </div>
-              <div class="donut-mode-toggle" role="group" aria-label="Modo del grafico de composicion">
-                <button type="button" id="donutModeInflow" class="donut-mode-btn donut-mode-btn-active">Ingresos</button>
-                <button type="button" id="donutModeOutflow" class="donut-mode-btn">Egresos</button>
-              </div>
-            </div>
-            <nav id="donutBreadcrumb" class="donut-bc" style="display:none" aria-label="Ruta del donut"></nav>
-            <div class="doughnut-wrapper">
-              <canvas id="agrupacionChart"></canvas>
-            </div>
-          </div>
-        </section>
+          <canvas id="rubroChart"></canvas>
+        </div>
       </section>
 
       <section id="pivotTab" class="tab-pane" aria-label="Tabla dinamica">
+        <section class="panel filters-section">
+          <p class="section-label">Filtros (Tabla Dinamica)</p>
+          <div class="filters-grid">
+            <label class="filter-label">
+              Banco
+              <div class="ms" id="pivotBankFilter"></div>
+            </label>
+            <label class="filter-label">
+              Agrupacion Original
+              <div class="ms" id="pivotAgrupacionFilter"></div>
+            </label>
+            <label class="filter-label">
+              Rubro Original
+              <div class="ms" id="pivotRubroFilter"></div>
+            </label>
+            <label class="filter-label">
+              Original
+              <div class="ms" id="pivotOriginalFilter"></div>
+            </label>
+            <label class="filter-label">
+              Item
+              <div class="ms" id="pivotItemFilter"></div>
+            </label>
+            <label class="filter-label">
+              Desde Periodo
+              <select id="pivotFromPeriod"></select>
+            </label>
+            <label class="filter-label">
+              Hasta Periodo
+              <select id="pivotToPeriod"></select>
+            </label>
+          </div>
+        </section>
+
         <!-- TABLA DINAMICA EXPANDIBLE -->
         <section class="panel table-section">
           <div class="table-header">
             <div>
               <h2>Tabla Dinamica</h2>
-              <p class="chart-subtitle">Click en <strong>&#9656;</strong> para desglosar &middot; Agrupacion &rarr; Rubro &rarr; Original &rarr; Item</p>
+              <p class="chart-subtitle" id="pivotOrderHint">Click en &#9656; para desglosar</p>
+              <div class="pivot-order-wrap" aria-label="Orden de jerarquia">
+                <span class="pivot-order-label">Orden de filas</span>
+                <div id="pivotHierarchyCards" class="pivot-order-cards"></div>
+              </div>
             </div>
             <div style="display:flex;gap:8px;flex-shrink:0">
               <button id="expandAllBtn"   class="btn btn-ghost" style="font-size:12px">&#9660; Expandir todo</button>
@@ -203,6 +227,15 @@
           <button class="mov-modal-close" id="movModalClose" aria-label="Cerrar">&times;</button>
         </div>
         <div class="mov-modal-summary" id="movModalSummary"></div>
+        <section class="mov-modal-chart" id="movModalChartWrap" style="display:none" aria-label="Cascada por item del mes">
+          <div class="mov-modal-chart-head">
+            <h3 id="movModalChartTitle">Aportes por Item</h3>
+            <span class="chart-subtitle">Impacto de cada item en el neto del mes</span>
+          </div>
+          <div class="mov-modal-chart-canvas-wrap">
+            <canvas id="movModalWaterfall"></canvas>
+          </div>
+        </section>
         <div class="mov-modal-body">
           <table id="movModalTable">
             <thead>

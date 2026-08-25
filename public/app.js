@@ -2,12 +2,16 @@ const state = {
   rows: [],
   filtered: [],
   trendChart: null,
-  waterfallChart: null,
+  periodItemWaterfallChart: null,
   rubroChart: null,
   agrupacionChart: null,
   expandedNodes: new Set(),   // claves de nodos expandidos en la tabla
-  donutDrill: [],             // ruta de drill-down del donut: [{field, value}, ...]
-  donutMode: "inflow",       // inflow | outflow
+  composition: {
+    groupBy: "Agrupacion Original",
+    metric: "net",
+    topN: 12
+  },
+  pivotHierarchy: ["Agrupacion Original", "Rubro Original", "Original", "Item"],
   activeTab: "dashboardTab",
   movementsSort: { key: "Fecha", direction: "desc" } // desc: mas reciente primero
 };
@@ -30,9 +34,17 @@ const els = {
   tabPanes:       Array.from(document.querySelectorAll(".tab-pane")),
   movementsHead:  document.getElementById("movementsHead"),
   movementsBody:  document.getElementById("movementsBody"),
-  donutModeInflowBtn: document.getElementById("donutModeInflow"),
-  donutModeOutflowBtn: document.getElementById("donutModeOutflow"),
-  donutSubtitle: document.getElementById("donutSubtitle")
+  pivotFromPeriod: document.getElementById("pivotFromPeriod"),
+  pivotToPeriod: document.getElementById("pivotToPeriod"),
+  pivotHierarchyCards: document.getElementById("pivotHierarchyCards"),
+  pivotOrderHint: document.getElementById("pivotOrderHint"),
+  donutSubtitle: document.getElementById("donutSubtitle"),
+  compositionGroupBy: document.getElementById("compositionGroupBy"),
+  compositionMetric: document.getElementById("compositionMetric"),
+  compositionTopN: document.getElementById("compositionTopN"),
+  compositionWrap: document.querySelector(".composition-wrapper"),
+  movModalChartWrap: document.getElementById("movModalChartWrap"),
+  movModalChartTitle: document.getElementById("movModalChartTitle")
 };
 
 const movementColumns = [
@@ -57,6 +69,34 @@ const hierarchyFields = [
   "Original",
   "Item"
 ];
+
+const HIERARCHY_LABELS = {
+  "Agrupacion Original": "Agrupacion",
+  "Rubro Original": "Rubro",
+  "Original": "Original",
+  "Item": "Item"
+};
+
+const MULTI_FILTER_PAIRS = {
+  bankFilter: "pivotBankFilter",
+  pivotBankFilter: "bankFilter",
+  agrupacionFilter: "pivotAgrupacionFilter",
+  pivotAgrupacionFilter: "agrupacionFilter",
+  rubroFilter: "pivotRubroFilter",
+  pivotRubroFilter: "rubroFilter",
+  originalFilter: "pivotOriginalFilter",
+  pivotOriginalFilter: "originalFilter",
+  itemFilter: "pivotItemFilter",
+  pivotItemFilter: "itemFilter"
+};
+
+const FILTER_GROUP_IDS = {
+  bank: ["bankFilter", "pivotBankFilter"],
+  agr: ["agrupacionFilter", "pivotAgrupacionFilter"],
+  rubro: ["rubroFilter", "pivotRubroFilter"],
+  original: ["originalFilter", "pivotOriginalFilter"],
+  item: ["itemFilter", "pivotItemFilter"]
+};
 
 const currencyFmt = new Intl.NumberFormat("es-AR", {
   style: "currency",
@@ -429,8 +469,26 @@ function _filterMsOpts(el) {
 }
 
 function _onMsChange(id) {
+  syncMirrorFilter(id);
   updateDependentFilters(id);
   applyFilters();
+}
+
+function syncMirrorFilter(sourceId) {
+  const targetId = MULTI_FILTER_PAIRS[sourceId];
+  if (!targetId) return;
+
+  const sourceSel = getMultiSelected(sourceId);
+  _msSel.set(targetId, new Set(sourceSel));
+
+  const targetEl = document.getElementById(targetId);
+  if (!targetEl) return;
+
+  const selectedAll = sourceSel.size === 0;
+  targetEl.querySelectorAll(".ms-item-cb").forEach((cb) => {
+    cb.checked = selectedAll || sourceSel.has(cb.value);
+  });
+  _syncMsLabel(targetId);
 }
 
 function getMultiSelected(id) {
@@ -471,18 +529,6 @@ function initTabs() {
   setActiveTab(state.activeTab);
 }
 
-function setDonutMode(mode) {
-  if (!["inflow", "outflow"].includes(mode)) return;
-  state.donutMode = mode;
-  state.donutDrill = [];
-
-  const isInflow = mode === "inflow";
-  els.donutModeInflowBtn?.classList.toggle("donut-mode-btn-active", isInflow);
-  els.donutModeOutflowBtn?.classList.toggle("donut-mode-btn-active", !isInflow);
-
-  renderAgrupacionChart();
-}
-
 function applyFilters() {
   const selBank     = getMultiSelected("bankFilter");
   const selAgr      = getMultiSelected("agrupacionFilter");
@@ -521,25 +567,30 @@ function updateDependentFilters(skipId = null) {
     return true;
   };
 
-  // skipId: no reconstruir el filtro que el usuario esta editando en este momento
-  if (skipId !== "bankFilter")       buildMultiSelect("bankFilter",       uniqueSorted(state.rows.filter((r) => ok(r, "bank")),     "Banco"));
-  if (skipId !== "agrupacionFilter") buildMultiSelect("agrupacionFilter", uniqueSorted(state.rows.filter((r) => ok(r, "agr")),      "Agrupacion Original"));
-  if (skipId !== "rubroFilter")      buildMultiSelect("rubroFilter",      uniqueSorted(state.rows.filter((r) => ok(r, "rubro")),    "Rubro Original"));
-  if (skipId !== "originalFilter")   buildMultiSelect("originalFilter",   uniqueSorted(state.rows.filter((r) => ok(r, "original")), "Original"));
-  if (skipId !== "itemFilter")       buildMultiSelect("itemFilter",       uniqueSorted(state.rows.filter((r) => ok(r, "item")),     "Item"));
+  const bankVals = uniqueSorted(state.rows.filter((r) => ok(r, "bank")), "Banco");
+  const agrVals = uniqueSorted(state.rows.filter((r) => ok(r, "agr")), "Agrupacion Original");
+  const rubroVals = uniqueSorted(state.rows.filter((r) => ok(r, "rubro")), "Rubro Original");
+  const originalVals = uniqueSorted(state.rows.filter((r) => ok(r, "original")), "Original");
+  const itemVals = uniqueSorted(state.rows.filter((r) => ok(r, "item")), "Item");
+
+  FILTER_GROUP_IDS.bank.forEach((id) => { if (id !== skipId) buildMultiSelect(id, bankVals); });
+  FILTER_GROUP_IDS.agr.forEach((id) => { if (id !== skipId) buildMultiSelect(id, agrVals); });
+  FILTER_GROUP_IDS.rubro.forEach((id) => { if (id !== skipId) buildMultiSelect(id, rubroVals); });
+  FILTER_GROUP_IDS.original.forEach((id) => { if (id !== skipId) buildMultiSelect(id, originalVals); });
+  FILTER_GROUP_IDS.item.forEach((id) => { if (id !== skipId) buildMultiSelect(id, itemVals); });
+
+  if (skipId && MULTI_FILTER_PAIRS[skipId]) syncMirrorFilter(skipId);
 }
 
 function renderMetrics() {
   const total   = state.filtered.reduce((sum, r) => sum + r.ImporteNum, 0);
   const inflow  = state.filtered.filter((r) => r.ImporteNum > 0).reduce((sum, r) => sum + r.ImporteNum, 0);
   const outflow = state.filtered.filter((r) => r.ImporteNum < 0).reduce((sum, r) => sum + r.ImporteNum, 0);
-  const txCount = state.filtered.length;
 
   const cards = [
     { title: "Importe Neto",  value: currencyFmt.format(total),   cls: total >= 0 ? "positive" : "negative", accent: total >= 0 ? "var(--green)" : "var(--red)" },
     { title: "Ingresos",      value: currencyFmt.format(inflow),  cls: "positive", accent: "var(--green)" },
-    { title: "Egresos",       value: currencyFmt.format(outflow), cls: "negative", accent: "var(--red)" },
-    { title: "Movimientos",   value: new Intl.NumberFormat("es-AR").format(txCount), cls: "mono", accent: "var(--blue-400)" }
+    { title: "Egresos",       value: currencyFmt.format(outflow), cls: "negative", accent: "var(--red)" }
   ];
 
   els.metrics.innerHTML = cards
@@ -560,6 +611,149 @@ function totalsByPeriod(rows) {
     m.set(key, (m.get(key) || 0) + r.ImporteNum);
   });
   return [...m.entries()].sort(([a], [b]) => a.localeCompare(b));
+}
+
+function destroyPeriodItemWaterfallChart() {
+  if (state.periodItemWaterfallChart) {
+    state.periodItemWaterfallChart.destroy();
+    state.periodItemWaterfallChart = null;
+  }
+}
+
+function renderPeriodItemWaterfall(rows, period) {
+  destroyPeriodItemWaterfallChart();
+
+  const canvas = document.getElementById("movModalWaterfall");
+  if (!canvas) return;
+
+  if (els.movModalChartTitle) {
+    els.movModalChartTitle.textContent = `Aportes por Item - ${period}`;
+  }
+
+  const byItem = new Map();
+  rows.forEach((r) => {
+    const key = r.Item || "Sin item";
+    byItem.set(key, (byItem.get(key) || 0) + r.ImporteNum);
+  });
+
+  let items = [...byItem.entries()]
+    .filter(([, v]) => v !== 0)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+
+  const maxBars = 10;
+  if (items.length > maxBars) {
+    const visible = items.slice(0, maxBars);
+    const othersTotal = items.slice(maxBars).reduce((sum, [, v]) => sum + v, 0);
+    if (othersTotal !== 0) visible.push(["Otros items", othersTotal]);
+    items = visible;
+  }
+
+  const labels = items.map(([name]) => name);
+  const deltas = items.map(([, total]) => total);
+
+  if (!labels.length) {
+    if (els.movModalChartWrap) els.movModalChartWrap.style.display = "none";
+    return;
+  }
+
+  if (els.movModalChartWrap) els.movModalChartWrap.style.display = "block";
+
+  const waterfallLabels = [...labels, "Neto del mes"];
+  const floatingBars = [];
+  const colors = [];
+  const borders = [];
+
+  let running = 0;
+  deltas.forEach((delta) => {
+    const start = running;
+    const end = running + delta;
+    floatingBars.push([start, end]);
+    colors.push(delta >= 0 ? "rgba(5,150,105,0.68)" : "rgba(220,38,38,0.68)");
+    borders.push(delta >= 0 ? "#059669" : "#dc2626");
+    running = end;
+  });
+
+  floatingBars.push([0, running]);
+  colors.push("rgba(37,99,235,0.34)");
+  borders.push("#2563eb");
+
+  let minY = 0;
+  let maxY = 0;
+  floatingBars.forEach((pair) => {
+    minY = Math.min(minY, pair[0], pair[1]);
+    maxY = Math.max(maxY, pair[0], pair[1]);
+  });
+  const span = Math.max(1, maxY - minY);
+  const pad = span * 0.14;
+
+  state.periodItemWaterfallChart = new Chart(canvas, {
+    type: "bar",
+    data: {
+      labels: waterfallLabels,
+      datasets: [{
+        label: "Aporte",
+        data: floatingBars,
+        backgroundColor: colors,
+        borderColor: borders,
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false,
+        categoryPercentage: 0.82,
+        barPercentage: 0.92
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        zeroReferencePlugin: {
+          enabled: true,
+          scaleId: "y",
+          color: "rgba(15,23,42,0.32)",
+          lineWidth: 1.4
+        },
+        legend: { display: false },
+        datalabels: { display: false },
+        tooltip: {
+          ...CHART_OPTS.tooltip,
+          callbacks: {
+            title: (itemsCtx) => itemsCtx?.[0]?.label || "",
+            label: (ctx) => {
+              const idx = ctx.dataIndex;
+              if (idx === labels.length) {
+                return ` Neto del mes: ${currencyFmt.format(running)}`;
+              }
+              return ` Aporte: ${currencyFmt.format(deltas[idx])}`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: "transparent" },
+          border: CHART_OPTS.scale.border,
+          ticks: {
+            ...CHART_OPTS.scale.ticks,
+            maxRotation: 40,
+            minRotation: 0
+          }
+        },
+        y: {
+          min: minY - pad,
+          max: maxY + pad,
+          grid: CHART_OPTS.scale.grid,
+          border: CHART_OPTS.scale.border,
+          ticks: { ...CHART_OPTS.scale.ticks, callback: (v) => formatCompact(v) },
+          title: {
+            display: true,
+            text: "Aporte acumulado",
+            color: "#64748b",
+            font: { size: 11, weight: "600" }
+          }
+        }
+      }
+    }
+  });
 }
 
 // Abre el modal con el detalle de movimientos del periodo clickeado
@@ -605,40 +799,33 @@ function openPeriodModal(period) {
     </tr>`;
   }).join("");
 
+  renderPeriodItemWaterfall(rows, period);
+
   document.getElementById("movModal").style.display = "flex";
   document.body.style.overflow = "hidden";
 }
 
 function closePeriodModal() {
+  destroyPeriodItemWaterfallChart();
   document.getElementById("movModal").style.display = "none";
   document.body.style.overflow = "";
 }
 
-// Grafico principal: barras Ingresos/Egresos por mes + linea Neto
+// Grafico principal: neto mensual por mes
 function renderTrendChart() {
   if (state.trendChart) { state.trendChart.destroy(); state.trendChart = null; }
 
   const periodMap = new Map();
   state.filtered.forEach((r) => {
     const p = r.Periodo || "Sin periodo";
-    if (!periodMap.has(p)) periodMap.set(p, { ingresos: 0, egresos: 0 });
-    const d = periodMap.get(p);
-    if (r.ImporteNum >= 0) d.ingresos += r.ImporteNum;
-    else d.egresos += r.ImporteNum;
+    if (!periodMap.has(p)) periodMap.set(p, 0);
+    periodMap.set(p, periodMap.get(p) + r.ImporteNum);
   });
 
   const sorted = [...periodMap.entries()].sort(([a], [b]) => a.localeCompare(b));
-  const labels   = sorted.map(([p]) => p);
-  const ingresos = sorted.map(([, d]) => d.ingresos);
-  const egresos  = sorted.map(([, d]) => d.egresos);
-  const neto     = sorted.map(([, d]) => d.ingresos + d.egresos);
-  const grossAbsMax = Math.max(
-    1,
-    ...ingresos.map((v) => Math.abs(v)),
-    ...egresos.map((v) => Math.abs(v))
-  );
+  const labels = sorted.map(([p]) => p);
+  const neto = sorted.map(([, total]) => total);
   const netAbsMax = Math.max(1, ...neto.map((v) => Math.abs(v)));
-  const grossLimit = grossAbsMax * 1.12;
   const netLimit = netAbsMax * 1.16;
 
   if (!labels.length) {
@@ -647,38 +834,11 @@ function renderTrendChart() {
   }
 
   state.trendChart = new Chart(document.getElementById("trendChart"), {
-    type: "bar",
+    type: "line",
     data: {
       labels,
       datasets: [
         {
-          type: "bar",
-          label: "Ingresos",
-          data: ingresos,
-          backgroundColor: "rgba(5,150,105,0.65)",
-          borderColor: "#059669",
-          borderWidth: 1,
-          borderRadius: 3,
-          yAxisID: "yGross",
-          categoryPercentage: 0.72,
-          barPercentage: 0.84,
-          order: 2
-        },
-        {
-          type: "bar",
-          label: "Egresos",
-          data: egresos,
-          backgroundColor: "rgba(220,38,38,0.65)",
-          borderColor: "#dc2626",
-          borderWidth: 1,
-          borderRadius: 3,
-          yAxisID: "yGross",
-          categoryPercentage: 0.72,
-          barPercentage: 0.84,
-          order: 2
-        },
-        {
-          type: "line",
           label: "Neto",
           data: neto,
           borderColor: "#2563eb",
@@ -688,10 +848,10 @@ function renderTrendChart() {
           tension: 0.35,
           borderWidth: 3,
           pointRadius: 4.5,
+          pointHoverRadius: 7,
           pointBackgroundColor: neto.map((v) => v >= 0 ? "#059669" : "#dc2626"),
           pointBorderColor: "#fff",
           pointBorderWidth: 2,
-          pointHoverRadius: 7,
           order: 1
         }
       ]
@@ -732,15 +892,6 @@ function renderTrendChart() {
           border: CHART_OPTS.scale.border,
           ticks: CHART_OPTS.scale.ticks
         },
-        yGross: {
-          min: -grossLimit,
-          max: grossLimit,
-          beginAtZero: true,
-          grid: CHART_OPTS.scale.grid,
-          border: CHART_OPTS.scale.border,
-          title: { display: true, text: "Ingresos / Egresos", color: "#64748b", font: { size: 11, weight: "600" } },
-          ticks: { ...CHART_OPTS.scale.ticks, callback: (v) => formatCompact(v) }
-        },
         yNet: {
           min: -netLimit,
           max: netLimit,
@@ -750,127 +901,6 @@ function renderTrendChart() {
           border: CHART_OPTS.scale.border,
           title: { display: true, text: "Neto", color: "#2563eb", font: { size: 11, weight: "700" } },
           ticks: { ...CHART_OPTS.scale.ticks, color: "#2563eb", callback: (v) => formatCompact(v) }
-        }
-      }
-    }
-  });
-}
-
-// Grafico de cascada: impacto neto mensual y acumulado final
-function renderWaterfallChart() {
-  if (state.waterfallChart) { state.waterfallChart.destroy(); state.waterfallChart = null; }
-
-  const monthlyNet = totalsByPeriod(state.filtered);
-  const labels = monthlyNet.map(([period]) => period);
-  const deltas = monthlyNet.map(([, total]) => total);
-
-  if (!labels.length) {
-    document.getElementById("waterfallChart").getContext("2d").clearRect(0, 0, 9999, 9999);
-    return;
-  }
-
-  const barLabels = [...labels, "Acumulado"];
-  const floatingBars = [];
-  const colors = [];
-  const borderColors = [];
-  const monthlyStart = [];
-  const monthlyEnd = [];
-
-  let running = 0;
-  deltas.forEach((delta) => {
-    const start = running;
-    const end = running + delta;
-    floatingBars.push([start, end]);
-    monthlyStart.push(start);
-    monthlyEnd.push(end);
-    colors.push(delta >= 0 ? "rgba(5,150,105,0.68)" : "rgba(220,38,38,0.68)");
-    borderColors.push(delta >= 0 ? "#059669" : "#dc2626");
-    running = end;
-  });
-
-  floatingBars.push([0, running]);
-  monthlyStart.push(0);
-  monthlyEnd.push(running);
-  colors.push("rgba(37,99,235,0.35)");
-  borderColors.push("#2563eb");
-
-  let minY = 0;
-  let maxY = 0;
-  for (let i = 0; i < floatingBars.length; i += 1) {
-    const pair = floatingBars[i];
-    minY = Math.min(minY, pair[0], pair[1]);
-    maxY = Math.max(maxY, pair[0], pair[1]);
-  }
-  const span = Math.max(1, maxY - minY);
-  const pad = span * 0.12;
-
-  state.waterfallChart = new Chart(document.getElementById("waterfallChart"), {
-    type: "bar",
-    data: {
-      labels: barLabels,
-      datasets: [{
-        label: "Variacion",
-        data: floatingBars,
-        backgroundColor: colors,
-        borderColor: borderColors,
-        borderWidth: 1,
-        borderRadius: 4,
-        borderSkipped: false,
-        categoryPercentage: 0.76,
-        barPercentage: 0.9
-      }]
-    },
-    options: {
-      responsive: true,
-      interaction: { mode: "nearest", intersect: true },
-      onClick: (_e, elements) => {
-        if (!elements.length) return;
-        const idx = elements[0].index;
-        if (idx >= labels.length) return;
-        openPeriodModal(labels[idx]);
-      },
-      plugins: {
-        zeroReferencePlugin: {
-          enabled: true,
-          scaleId: "y",
-          color: "rgba(15,23,42,0.32)",
-          lineWidth: 1.4
-        },
-        legend: { display: false },
-        datalabels: { display: false },
-        tooltip: {
-          ...CHART_OPTS.tooltip,
-          callbacks: {
-            title: (items) => items?.[0]?.label || "",
-            label: (ctx) => {
-              const idx = ctx.dataIndex;
-              const isTotal = idx === labels.length;
-              if (isTotal) {
-                return ` Acumulado: ${currencyFmt.format(running)}`;
-              }
-              return ` Neto del mes: ${currencyFmt.format(deltas[idx])}`;
-            },
-            afterLabel: (ctx) => {
-              const idx = ctx.dataIndex;
-              if (idx === labels.length) return "";
-              return ` Cierre acumulado: ${currencyFmt.format(monthlyEnd[idx])}`;
-            }
-          }
-        }
-      },
-      scales: {
-        x: {
-          grid: { color: "transparent" },
-          border: CHART_OPTS.scale.border,
-          ticks: CHART_OPTS.scale.ticks
-        },
-        y: {
-          min: minY - pad,
-          max: maxY + pad,
-          grid: CHART_OPTS.scale.grid,
-          border: CHART_OPTS.scale.border,
-          ticks: { ...CHART_OPTS.scale.ticks, callback: (v) => formatCompact(v) },
-          title: { display: true, text: "Saldo acumulado", color: "#64748b", font: { size: 11, weight: "600" } }
         }
       }
     }
@@ -960,198 +990,296 @@ function renderRubroChart() {
   });
 }
 
-const DONUT_PALETTE = [
-  "#2563eb","#059669","#dc2626","#7c3aed","#d97706",
-  "#0891b2","#be185d","#4f46e5","#65a30d","#c2410c"
-];
+function computeMetricValue(stat, metric) {
+  const inflow = Number(stat.inflow || 0);
+  const outflowAbs = Math.abs(Number(stat.outflow || 0));
+  const net = inflow + Number(stat.outflow || 0);
 
-// Jerarquia de campos para el drill-down del donut
-const DRILL_FIELDS = ["Agrupacion Original", "Rubro Original", "Original", "Item"];
-
-const DRILL_TITLES = [
-  "Composicion por Agrupacion",
-  "Composicion por Rubro",
-  "Composicion por Original",
-  "Composicion por Item",
-];
-
-function renderDonutBreadcrumb() {
-  const drill = state.donutDrill;
-  const bc    = document.getElementById("donutBreadcrumb");
-  const title = document.getElementById("donutTitle");
-  if (!bc) return;
-
-  const isInflow = state.donutMode === "inflow";
-  const prefix = isInflow ? "Ingresos" : "Egresos";
-
-  if (!drill.length) {
-    bc.style.display = "none";
-    if (title) title.textContent = `${prefix} - ${DRILL_TITLES[0]}`;
-    if (els.donutSubtitle) els.donutSubtitle.textContent = "Click en sector para desglosar";
-    return;
-  }
-
-  bc.style.display = "flex";
-  if (title) title.textContent = `${prefix} - ${DRILL_TITLES[Math.min(drill.length, DRILL_TITLES.length - 1)]}`;
-  if (els.donutSubtitle) els.donutSubtitle.textContent = "Ruta de desagregacion activa";
-
-  bc.innerHTML = [
-    `<button class="donut-bc-btn donut-bc-root" data-level="-1">Todos</button>`,
-    ...drill.map((d, i) =>
-      `<span class="donut-bc-sep">&#8250;</span>
-       <button class="donut-bc-btn" data-level="${i}">${escapeHtml(d.value)}</button>`
-    )
-  ].join("");
-
-  bc.querySelectorAll(".donut-bc-btn").forEach((btn) => {
-    btn.addEventListener("click", () => {
-      const lvl = parseInt(btn.dataset.level);
-      state.donutDrill = lvl === -1 ? [] : state.donutDrill.slice(0, lvl + 1);
-      renderAgrupacionChart();
-    });
-  });
+  if (metric === "inflow") return inflow;
+  if (metric === "outflow") return outflowAbs;
+  if (metric === "turnover") return inflow + outflowAbs;
+  return net;
 }
 
-// Donut con drill-down autonomo: navega niveles sin cambiar filtros globales
+function setCompositionSummary(labelsCount, groupBy, metric) {
+  const title = document.getElementById("donutTitle");
+  const metricLabelMap = {
+    net: "neto",
+    turnover: "volumen",
+    inflow: "ingresos",
+    outflow: "egresos"
+  };
+  const shortFieldMap = {
+    "Agrupacion Original": "Agrupacion",
+    "Rubro Original": "Rubro",
+    "Original": "Original",
+    "Item": "Item"
+  };
+
+  if (title) title.textContent = `Cascada de Flujo por ${shortFieldMap[groupBy] || groupBy}`;
+  if (els.donutSubtitle) {
+    els.donutSubtitle.textContent = `${labelsCount} categorias visibles - orden por metrica ${metricLabelMap[metric] || metric}`;
+  }
+}
+
+function applyCompositionFilter(groupBy, value) {
+  const filterIdByField = {
+    "Agrupacion Original": "agrupacionFilter",
+    "Rubro Original": "rubroFilter",
+    "Original": "originalFilter",
+    "Item": "itemFilter"
+  };
+  const filterId = filterIdByField[groupBy];
+  if (!filterId || value === "Otros") return;
+  setMultiSingle(filterId, value);
+  _onMsChange(filterId);
+}
+
+// Cascada dinamica de flujo: configurable por criterio, metrica y top N
 function renderAgrupacionChart() {
   if (state.agrupacionChart) { state.agrupacionChart.destroy(); state.agrupacionChart = null; }
 
-  const drill = state.donutDrill;
-  const isInflow = state.donutMode === "inflow";
+  const groupBy = state.composition.groupBy;
+  const metric = state.composition.metric;
+  const topN = Number(state.composition.topN || 0);
 
-  // Filtrar filas por signo y luego por la ruta de drill
-  let drillRows = state.filtered.filter((r) => isInflow ? r.ImporteNum > 0 : r.ImporteNum < 0);
-  drill.forEach(({ field, value }) => {
-    drillRows = drillRows.filter((r) => (r[field] || "Sin dato") === value);
-  });
-
-  // Campo del siguiente nivel
-  const nextField = DRILL_FIELDS[drill.length] ?? null;
-
-  renderDonutBreadcrumb();
-
-  if (!nextField || !drillRows.length) {
+  if (!groupBy || !state.filtered.length) {
     const el = document.getElementById("agrupacionChart");
     if (el) el.getContext("2d").clearRect(0, 0, 9999, 9999);
     if (els.donutSubtitle) {
-      els.donutSubtitle.textContent = isInflow
-        ? "Sin ingresos para los filtros actuales"
-        : "Sin egresos para los filtros actuales";
+      els.donutSubtitle.textContent = "Sin datos para los filtros actuales";
     }
     return;
   }
 
   const map = new Map();
-  drillRows.forEach((r) => {
-    const key = r[nextField] || "Sin dato";
-    map.set(key, (map.get(key) || 0) + Math.abs(r.ImporteNum));
+  state.filtered.forEach((r) => {
+    const key = r[groupBy] || "Sin dato";
+    if (!map.has(key)) map.set(key, { inflow: 0, outflow: 0 });
+    const acc = map.get(key);
+    if (r.ImporteNum >= 0) acc.inflow += r.ImporteNum;
+    else acc.outflow += r.ImporteNum;
   });
 
-  const entries = [...map.entries()].sort((a, b) => b[1] - a[1]);
-  const labels  = entries.map(([k]) => k);
-  const values  = entries.map(([, v]) => v);
-  const total   = values.reduce((s, v) => s + v, 0);
+  let entries = [...map.entries()]
+    .filter(([, v]) => v.inflow !== 0 || v.outflow !== 0)
+    .map(([label, stat]) => ({
+      label,
+      inflow: Number(stat.inflow || 0),
+      outflow: Number(stat.outflow || 0),
+      net: Number(stat.inflow || 0) + Number(stat.outflow || 0),
+      metricValue: computeMetricValue(stat, metric)
+    }));
+
+  entries.sort((a, b) => b.metricValue - a.metricValue);
+
+  let ranked = topN > 0 ? entries.slice(0, topN) : entries;
+  const rest = topN > 0 ? entries.slice(topN) : [];
+
+  if (rest.length) {
+    const others = rest.reduce((acc, v) => {
+      acc.inflow += v.inflow;
+      acc.outflow += v.outflow;
+      acc.net += v.net;
+      return acc;
+    }, { inflow: 0, outflow: 0, net: 0 });
+    ranked = [...ranked, {
+      label: "Otros",
+      inflow: others.inflow,
+      outflow: others.outflow,
+      net: others.net,
+      metricValue: computeMetricValue(others, metric)
+    }];
+  }
+
+  const labels = ranked.map((r) => r.label);
+  const deltas = ranked.map((r) => Number(r.net || 0));
 
   if (!labels.length) return;
 
+  setCompositionSummary(labels.length, groupBy, metric);
+
+  const waterfallLabels = [...labels, "Total filtrado"];
+  const floatingBars = [];
+  const colors = [];
+  const borders = [];
+  const runningAfterStep = [];
+
+  let running = 0;
+  deltas.forEach((delta) => {
+    const start = running;
+    const end = running + delta;
+    floatingBars.push([start, end]);
+    colors.push(delta >= 0 ? "rgba(5,150,105,0.68)" : "rgba(220,38,38,0.68)");
+    borders.push(delta >= 0 ? "#059669" : "#dc2626");
+    running = end;
+    runningAfterStep.push(running);
+  });
+
+  floatingBars.push([0, running]);
+  colors.push("rgba(37,99,235,0.34)");
+  borders.push("#2563eb");
+
+  let minY = 0;
+  let maxY = 0;
+  floatingBars.forEach((pair) => {
+    minY = Math.min(minY, pair[0], pair[1]);
+    maxY = Math.max(maxY, pair[0], pair[1]);
+  });
+  const span = Math.max(1, maxY - minY);
+  const pad = span * 0.12;
+
+  if (els.compositionWrap) {
+    els.compositionWrap.style.height = "320px";
+  }
+
   state.agrupacionChart = new Chart(document.getElementById("agrupacionChart"), {
-    type: "doughnut",
+    type: "bar",
     data: {
-      labels,
+      labels: waterfallLabels,
       datasets: [{
-        data: values,
-        backgroundColor: DONUT_PALETTE.slice(0, labels.length),
-        borderColor: "#ffffff",
-        borderWidth: 2,
-        hoverOffset: 10
+        label: "Aporte neto",
+        data: floatingBars,
+        backgroundColor: colors,
+        borderColor: borders,
+        borderWidth: 1,
+        borderRadius: 4,
+        borderSkipped: false,
+        categoryPercentage: 0.82,
+        barPercentage: 0.9,
       }]
     },
     options: {
-      cutout: "62%",
       responsive: true,
+      maintainAspectRatio: false,
       onClick: (_e, elements) => {
         if (!elements.length) return;
-        const value = labels[elements[0].index];
-        // Si ya estamos en el ultimo nivel, no hay mas hijos
-        if (drill.length < DRILL_FIELDS.length - 1) {
-          state.donutDrill = [...drill, { field: nextField, value }];
-          renderAgrupacionChart();
-        }
+        const idx = elements[0].index;
+        if (idx >= labels.length) return;
+        const value = labels[idx];
+        applyCompositionFilter(groupBy, value);
       },
       plugins: {
         legend: {
-          position: "bottom",
-          labels: { color: "#334155", boxWidth: 12, boxHeight: 12, font: { size: 11 }, padding: 10 }
+          display: false
         },
         datalabels: {
-          display: (ctx) => {
-            const v = Number(ctx.dataset.data[ctx.dataIndex] || 0);
-            if (!total) return false;
-            return (v / total) >= 0.05;
-          },
-          formatter: (value) => formatPct(Number(value || 0), total, 1),
-          color: "#0f172a",
-          backgroundColor: "rgba(255,255,255,0.9)",
-          borderColor: "rgba(148,163,184,0.6)",
-          borderWidth: 1,
-          borderRadius: 4,
-          padding: { top: 2, right: 4, bottom: 2, left: 4 },
-          font: { weight: "700", size: 10 },
-          anchor: "end",
-          align: "end",
-          offset: 6,
-          clamp: true,
-          clip: false
+          display: false
         },
         tooltip: {
           ...CHART_OPTS.tooltip,
           callbacks: {
             label: (ctx) => {
-              const pct = total > 0 ? ((ctx.parsed / total) * 100).toFixed(1) : 0;
-              const signedValue = isInflow ? ctx.parsed : -ctx.parsed;
-              return ` ${ctx.label}: ${currencyFmt.format(signedValue)} (${pct}%)`;
+              const idx = ctx.dataIndex;
+              if (idx === labels.length) {
+                return ` Total filtrado: ${currencyFmt.format(running)}`;
+              }
+              const delta = deltas[idx] || 0;
+              return ` ${labels[idx]}: ${currencyFmt.format(delta)}`;
             },
+            afterBody: (items) => {
+              if (!items?.length) return "";
+              const idx = items[0].dataIndex;
+              if (idx >= labels.length) return "";
+              return `Acumulado: ${currencyFmt.format(runningAfterStep[idx] || 0)}`;
+            }
           }
+        }
+      },
+      scales: {
+        y: {
+          min: minY - pad,
+          max: maxY + pad,
+          grid: CHART_OPTS.scale.grid,
+          border: CHART_OPTS.scale.border,
+          ticks: {
+            ...CHART_OPTS.scale.ticks,
+            callback: (v) => formatCompact(Number(v || 0))
+          }
+        },
+        x: {
+          grid: { color: "transparent" },
+          border: CHART_OPTS.scale.border,
+          ticks: { color: "#334155", font: { size: 11 }, autoSkip: false, maxRotation: 32, minRotation: 20 }
         }
       }
     }
   });
 }
 
-// Construye arbol jerarquico de 4 niveles desde las filas filtradas
+// Construye arbol jerarquico segun el orden seleccionado en la tabla dinamica
 function buildTree(rows) {
   const root = new Map();
+  const order = state.pivotHierarchy;
+
   rows.forEach((r) => {
-    const path = [
-      r["Agrupacion Original"] || "Sin dato",
-      r["Rubro Original"]      || "Sin dato",
-      r.Original               || "Sin dato",
-      r.Item                   || "Sin dato",
-    ];
+    const path = order.map((field) => r[field] || "Sin dato");
     const per = r.Periodo || "Sin periodo";
     const val = r.ImporteNum;
 
-    const k0 = path[0];
-    if (!root.has(k0)) root.set(k0, { label: path[0], key: k0, level: 0, total: 0, periods: {}, children: new Map() });
-    const n0 = root.get(k0);
-    n0.total += val; n0.periods[per] = (n0.periods[per] || 0) + val;
-
-    const k1 = `${k0} » ${path[1]}`;
-    if (!n0.children.has(k1)) n0.children.set(k1, { label: path[1], key: k1, level: 1, total: 0, periods: {}, children: new Map() });
-    const n1 = n0.children.get(k1);
-    n1.total += val; n1.periods[per] = (n1.periods[per] || 0) + val;
-
-    const k2 = `${k1} » ${path[2]}`;
-    if (!n1.children.has(k2)) n1.children.set(k2, { label: path[2], key: k2, level: 2, total: 0, periods: {}, children: new Map() });
-    const n2 = n1.children.get(k2);
-    n2.total += val; n2.periods[per] = (n2.periods[per] || 0) + val;
-
-    const k3 = `${k2} » ${path[3]}`;
-    if (!n2.children.has(k3)) n2.children.set(k3, { label: path[3], key: k3, level: 3, total: 0, periods: {}, children: new Map() });
-    const n3 = n2.children.get(k3);
-    n3.total += val; n3.periods[per] = (n3.periods[per] || 0) + val;
+    let current = root;
+    let keyPath = "";
+    path.forEach((label, level) => {
+      keyPath = keyPath ? `${keyPath} » ${label}` : label;
+      if (!current.has(keyPath)) {
+        current.set(keyPath, {
+          label,
+          key: keyPath,
+          level,
+          total: 0,
+          periods: {},
+          children: new Map()
+        });
+      }
+      const node = current.get(keyPath);
+      node.total += val;
+      node.periods[per] = (node.periods[per] || 0) + val;
+      current = node.children;
+    });
   });
+
   return root;
+}
+
+function renderPivotOrderHint() {
+  if (!els.pivotOrderHint) return;
+  const orderTxt = state.pivotHierarchy.map((f) => HIERARCHY_LABELS[f] || f).join(" -> ");
+  els.pivotOrderHint.textContent = `Click en > para desglosar - Orden actual: ${orderTxt}`;
+}
+
+function movePivotHierarchyField(index, direction) {
+  const next = index + direction;
+  if (next < 0 || next >= state.pivotHierarchy.length) return;
+  const arr = [...state.pivotHierarchy];
+  [arr[index], arr[next]] = [arr[next], arr[index]];
+  state.pivotHierarchy = arr;
+  state.expandedNodes.clear();
+  renderPivotHierarchyControls();
+  renderPivotOrderHint();
+  renderPivotTable();
+}
+
+function renderPivotHierarchyControls() {
+  if (!els.pivotHierarchyCards) return;
+  els.pivotHierarchyCards.innerHTML = state.pivotHierarchy.map((field, idx) => {
+    const label = HIERARCHY_LABELS[field] || field;
+    return `
+      <div class="pivot-order-card" data-field="${escapeHtml(field)}">
+        <span class="pivot-order-card-name">${escapeHtml(label)}</span>
+        <div class="pivot-order-actions">
+          <button type="button" class="pivot-order-btn" data-move="up" data-idx="${idx}" ${idx === 0 ? "disabled" : ""} aria-label="Subir ${escapeHtml(label)}">&#8593;</button>
+          <button type="button" class="pivot-order-btn" data-move="down" data-idx="${idx}" ${idx === state.pivotHierarchy.length - 1 ? "disabled" : ""} aria-label="Bajar ${escapeHtml(label)}">&#8595;</button>
+        </div>
+      </div>`;
+  }).join("");
+
+  els.pivotHierarchyCards.querySelectorAll(".pivot-order-btn").forEach((btn) => {
+    btn.addEventListener("click", () => {
+      const idx = Number(btn.dataset.idx);
+      const direction = btn.dataset.move === "up" ? -1 : 1;
+      movePivotHierarchyField(idx, direction);
+    });
+  });
 }
 
 // Aplana el arbol solo mostrando nodos cuyo padre esta expandido
@@ -1386,9 +1514,7 @@ function renderStatus(source) {
 }
 
 function renderAll(source = "") {
-  renderMetrics();
   renderTrendChart();
-  renderWaterfallChart();
   renderRubroChart();
   renderAgrupacionChart();
   renderPivotTable();
@@ -1398,42 +1524,84 @@ function renderAll(source = "") {
 }
 
 function setupFilterOptions() {
-  buildMultiSelect("bankFilter",       uniqueSorted(state.rows, "Banco"));
-  buildMultiSelect("agrupacionFilter", uniqueSorted(state.rows, "Agrupacion Original"));
-  buildMultiSelect("rubroFilter",      uniqueSorted(state.rows, "Rubro Original"));
-  buildMultiSelect("originalFilter",   uniqueSorted(state.rows, "Original"));
-  buildMultiSelect("itemFilter",       uniqueSorted(state.rows, "Item"));
+  const bankVals = uniqueSorted(state.rows, "Banco");
+  const agrVals = uniqueSorted(state.rows, "Agrupacion Original");
+  const rubroVals = uniqueSorted(state.rows, "Rubro Original");
+  const originalVals = uniqueSorted(state.rows, "Original");
+  const itemVals = uniqueSorted(state.rows, "Item");
+
+  FILTER_GROUP_IDS.bank.forEach((id) => buildMultiSelect(id, bankVals));
+  FILTER_GROUP_IDS.agr.forEach((id) => buildMultiSelect(id, agrVals));
+  FILTER_GROUP_IDS.rubro.forEach((id) => buildMultiSelect(id, rubroVals));
+  FILTER_GROUP_IDS.original.forEach((id) => buildMultiSelect(id, originalVals));
+  FILTER_GROUP_IDS.item.forEach((id) => buildMultiSelect(id, itemVals));
 
   const periods = uniqueSorted(state.rows, "Periodo");
   fillSelect(els.fromPeriod, periods, false);
   fillSelect(els.toPeriod, periods, false);
+  if (els.pivotFromPeriod) fillSelect(els.pivotFromPeriod, periods, false);
+  if (els.pivotToPeriod) fillSelect(els.pivotToPeriod, periods, false);
 
   if (periods.length) {
     els.fromPeriod.value = periods[0];
     els.toPeriod.value = periods[periods.length - 1];
+    if (els.pivotFromPeriod) els.pivotFromPeriod.value = periods[0];
+    if (els.pivotToPeriod) els.pivotToPeriod.value = periods[periods.length - 1];
   }
 
   // Auto-expandir nivel 0 al cargar datos
-  state.expandedNodes = new Set(uniqueSorted(state.rows, "Agrupacion Original"));
+  const topField = state.pivotHierarchy[0];
+  state.expandedNodes = new Set(uniqueSorted(state.rows, topField));
 }
 
 function bindEvents() {
   initTabs();
   buildMovementsTableHeader();
 
-  els.donutModeInflowBtn?.addEventListener("click", () => setDonutMode("inflow"));
-  els.donutModeOutflowBtn?.addEventListener("click", () => setDonutMode("outflow"));
+  if (els.compositionGroupBy) els.compositionGroupBy.value = state.composition.groupBy;
+  if (els.compositionMetric) els.compositionMetric.value = state.composition.metric;
+  if (els.compositionTopN) els.compositionTopN.value = String(state.composition.topN);
+
+  renderPivotHierarchyControls();
+  renderPivotOrderHint();
+
+  els.compositionGroupBy?.addEventListener("change", (e) => {
+    state.composition.groupBy = e.target.value;
+    renderAgrupacionChart();
+  });
+
+  els.compositionMetric?.addEventListener("change", (e) => {
+    state.composition.metric = e.target.value;
+    renderAgrupacionChart();
+  });
+
+  els.compositionTopN?.addEventListener("change", (e) => {
+    state.composition.topN = Number(e.target.value || 0);
+    renderAgrupacionChart();
+  });
 
   // Solo los selects de periodo siguen siendo nativos
   [els.fromPeriod, els.toPeriod].forEach((el) => {
-    el.addEventListener("change", () => applyFilters());
+    el.addEventListener("change", () => {
+      if (els.pivotFromPeriod && els.fromPeriod) els.pivotFromPeriod.value = els.fromPeriod.value;
+      if (els.pivotToPeriod && els.toPeriod) els.pivotToPeriod.value = els.toPeriod.value;
+      applyFilters();
+    });
+  });
+
+  [els.pivotFromPeriod, els.pivotToPeriod].forEach((el) => {
+    el?.addEventListener("change", () => {
+      if (els.pivotFromPeriod && els.fromPeriod) els.fromPeriod.value = els.pivotFromPeriod.value;
+      if (els.pivotToPeriod && els.toPeriod) els.toPeriod.value = els.pivotToPeriod.value;
+      applyFilters();
+    });
   });
 
   els.refreshBtn.addEventListener("click", () => loadData());
   els.uploadBtn?.addEventListener("click", () => uploadExcel());
-  els.exportCsvBtn.addEventListener("click", () => exportFilteredCsv());
-  els.resetUploadBtn.addEventListener("click", () => resetUploadedSource());
-  els.excelFile.addEventListener("change", () => uploadExcel());
+  els.exportCsvBtn?.addEventListener("click", () => exportFilteredCsv());
+  els.resetUploadBtn?.addEventListener("click", () => resetUploadedSource());
+  els.excelFile?.addEventListener("change", () => uploadExcel());
 
   // Expandir / colapsar todo en la tabla
   document.getElementById("expandAllBtn")?.addEventListener("click", () => {
