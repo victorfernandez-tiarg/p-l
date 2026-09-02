@@ -242,7 +242,7 @@ app.post("/api/ask", async (req, res) => {
   }));
   const context = [];
   let contextChars = 0;
-  const maxContextChars = 18000;
+  const maxContextChars = 8000;
   for (const row of compactRows) {
     const rowChars = JSON.stringify(row).length + 1;
     if (context.length && contextChars + rowChars > maxContextChars) break;
@@ -260,7 +260,7 @@ app.post("/api/ask", async (req, res) => {
       body: JSON.stringify({
         model,
         temperature: 0.1,
-        max_tokens: 700,
+        max_tokens: 350,
         messages: [
           {
             role: "system",

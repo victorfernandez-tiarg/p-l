@@ -1505,7 +1505,9 @@ async function askAboutMovements() {
   els.movementAnswer.textContent = "Consultando...";
 
   try {
-    const terms = normalizeSearchText(question).match(/[a-z0-9]{3,}/g) || [];
+    const ignoredTerms = new Set(["para", "sobre", "entre", "hubo", "tiene", "como", "que", "los", "las", "por", "del", "una", "unos", "unas", "con", "sin", "desde", "hasta", "este", "esta", "estos", "estas"]);
+    const terms = (normalizeSearchText(question).match(/[a-z0-9]{3,}/g) || [])
+      .filter((term) => !ignoredTerms.has(term));
     const candidateRows = state.filtered.filter((row) => {
       const searchable = normalizeSearchText(Object.values(row).join(" "));
       return terms.some((term) => searchable.includes(term));
@@ -1516,12 +1518,15 @@ async function askAboutMovements() {
       body: JSON.stringify({ question, rows: candidateRows.length ? candidateRows : state.filtered })
     });
     const payload = await res.json();
-    if (!res.ok) throw new Error([payload.message, payload.detail].filter(Boolean).join(" ") || `Error HTTP ${res.status}`);
+    if (!res.ok) {
+      const wait = res.status === 429 ? " Espera unos segundos antes de volver a consultar." : "";
+      throw new Error(([payload.message, payload.detail].filter(Boolean).join(" ") || `Error HTTP ${res.status}`) + wait);
+    }
     els.movementAnswer.textContent = payload.answer;
   } catch (error) {
     els.movementAnswer.textContent = `No se pudo realizar la consulta: ${String(error.message || error)}`;
   } finally {
-    els.askMovementBtn.disabled = false;
+    window.setTimeout(() => { els.askMovementBtn.disabled = false; }, 5000);
   }
 }
 
