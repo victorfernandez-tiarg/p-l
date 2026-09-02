@@ -97,7 +97,7 @@ La pestaña "Detalle de movimientos" incluye una consulta opcional con Groq. La 
 
 ```bash
 GROQ_API_KEY=tu_clave_de_groq
-GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL=
 ```
 
 3. Reiniciar la app y aplicar los filtros del dashboard antes de preguntar.
@@ -111,7 +111,7 @@ La consulta busca primero coincidencias en los movimientos que quedan en los fil
 3. En Railway, abrir **Variables** y agregar:
    - `SHEETS_CSV_URL`: URL CSV de Google Sheets, si esa es la fuente usada.
    - `GROQ_API_KEY`: API key de Groq para habilitar las consultas.
-   - `GROQ_MODEL`: opcional; por defecto `llama-3.1-8b-instant`.
+   - `GROQ_MODEL`: opcional; si se deja vacío, el backend elige automáticamente un modelo de chat disponible.
 4. Railway detecta `npm start` automaticamente y asigna el puerto mediante `PORT`.
 5. Hacer un nuevo deploy o reiniciar el servicio después de guardar las variables.
 
