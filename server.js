@@ -265,7 +265,7 @@ app.post("/api/ask", async (req, res) => {
         messages: [
           {
             role: "system",
-            content: "Eres un analista de tesoreria. Responde en espanol usando exclusivamente los movimientos JSON recibidos. No inventes datos. Si no hay evidencia suficiente, dilo. Para importes, respeta el signo y aclara cuando una suma sea aproximada. Responde de forma breve y concreta."
+            content: "Eres un analista de tesoreria. Responde en espanol usando exclusivamente los movimientos JSON recibidos. No inventes datos. Si no hay evidencia suficiente, dilo. Para importes, respeta el signo y aclara cuando una suma sea aproximada. Escribe los importes en formato argentino, por ejemplo $10.778.167,92. Responde de forma breve y concreta."
           },
           {
             role: "user",

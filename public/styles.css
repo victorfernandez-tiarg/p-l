@@ -233,6 +233,14 @@ body {
   font-size: 13px;
 }
 
+.movement-answer ul {
+  margin: 6px 0 6px 20px;
+}
+
+.movement-answer li {
+  margin: 3px 0;
+}
+
 @media (max-width: 560px) {
   .movement-ask { right: 16px; bottom: 82px; }
   .movement-ask-fab { right: 16px; bottom: 16px; }

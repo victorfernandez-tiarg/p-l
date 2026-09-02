@@ -184,6 +184,15 @@ function escapeHtml(str) {
     .replace(/"/g, "&quot;");
 }
 
+function renderAssistantAnswer(value) {
+  const safe = escapeHtml(value);
+  return safe
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/^\s*[-*]\s+(.+)$/gm, "<li>$1</li>")
+    .replace(/(?:<li>.*<\/li>\n?)+/g, (list) => `<ul>${list}</ul>`)
+    .replace(/\n/g, "<br>");
+}
+
 function parseArNumber(value) {
   if (value == null) return 0;
   // Si xlsx ya entrego un numero JS nativo, usarlo directo
@@ -1522,7 +1531,7 @@ async function askAboutMovements() {
       const wait = res.status === 429 ? " Espera unos segundos antes de volver a consultar." : "";
       throw new Error(([payload.message, payload.detail].filter(Boolean).join(" ") || `Error HTTP ${res.status}`) + wait);
     }
-    els.movementAnswer.textContent = payload.answer;
+    els.movementAnswer.innerHTML = renderAssistantAnswer(payload.answer);
   } catch (error) {
     els.movementAnswer.textContent = `No se pudo realizar la consulta: ${String(error.message || error)}`;
   } finally {
