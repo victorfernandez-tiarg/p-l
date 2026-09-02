@@ -50,7 +50,8 @@ const els = {
   movementAnswer: document.getElementById("movementAnswer"),
   movementAskFab: document.getElementById("movementAskFab"),
   movementAskPanel: document.getElementById("movementAskPanel"),
-  movementAskClose: document.getElementById("movementAskClose")
+  movementAskClose: document.getElementById("movementAskClose"),
+  movementAskScope: document.getElementById("movementAskScope")
 };
 
 const movementColumns = [
@@ -1449,16 +1450,15 @@ function buildMovementsTableHeader() {
 function renderMovementsTable() {
   if (!els.movementsBody) return;
 
-  const filteredRows = state.filtered.filter((row) => {
-    return movementColumns.every((col) => {
-      const query = normalizeSearchText(movementColumnFilters[col.key]);
-      if (!query) return true;
-      const raw = col.key === "ImporteNum"
-        ? currencyFmt.format(Number(row.ImporteNum || 0))
-        : String(row[col.key] ?? "");
-      return normalizeSearchText(raw).includes(query);
-    });
-  });
+  const filteredRows = getMovementFilteredRows();
+  const activeColumnFilters = movementColumns
+    .filter((column) => movementColumnFilters[column.key])
+    .map((column) => `${column.label}: "${movementColumnFilters[column.key]}"`);
+  if (els.movementAskScope) {
+    els.movementAskScope.textContent = activeColumnFilters.length
+      ? `Filtros activos: ${activeColumnFilters.join(" · ")}`
+      : "Busca en todos los movimientos que cumplen los filtros activos.";
+  }
 
   if (!filteredRows.length) {
     els.movementsBody.innerHTML = `<tr><td colspan="${movementColumns.length}" style="text-align:center;padding:24px;color:var(--text-400)">Sin movimientos para los filtros actuales</td></tr>`;
@@ -1506,6 +1506,19 @@ function renderMovementsTable() {
   }).join("");
 }
 
+function getMovementFilteredRows() {
+  return state.filtered.filter((row) => {
+    return movementColumns.every((col) => {
+      const query = normalizeSearchText(movementColumnFilters[col.key]);
+      if (!query) return true;
+      const raw = col.key === "ImporteNum"
+        ? currencyFmt.format(Number(row.ImporteNum || 0))
+        : String(row[col.key] ?? "");
+      return normalizeSearchText(raw).includes(query);
+    });
+  });
+}
+
 async function askAboutMovements() {
   const question = els.movementQuestion?.value.trim();
   if (!question || !els.askMovementBtn || !els.movementAnswer) return;
@@ -1514,17 +1527,18 @@ async function askAboutMovements() {
   els.movementAnswer.textContent = "Consultando...";
 
   try {
+    const movementRows = getMovementFilteredRows();
     const ignoredTerms = new Set(["para", "sobre", "entre", "hubo", "tiene", "como", "que", "los", "las", "por", "del", "una", "unos", "unas", "con", "sin", "desde", "hasta", "este", "esta", "estos", "estas"]);
     const terms = (normalizeSearchText(question).match(/[a-z0-9]{3,}/g) || [])
       .filter((term) => !ignoredTerms.has(term));
-    const candidateRows = state.filtered.filter((row) => {
+    const candidateRows = movementRows.filter((row) => {
       const searchable = normalizeSearchText(Object.values(row).join(" "));
       return terms.some((term) => searchable.includes(term));
     });
     const res = await fetch("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, rows: candidateRows.length ? candidateRows : state.filtered })
+      body: JSON.stringify({ question, rows: candidateRows.length ? candidateRows : movementRows })
     });
     const payload = await res.json();
     if (!res.ok) {

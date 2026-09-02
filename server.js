@@ -211,6 +211,44 @@ app.post("/api/ask", async (req, res) => {
   const model = requestedModel && !["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "openai/gpt-oss-120b"].includes(requestedModel)
     ? requestedModel
     : "openai/gpt-oss-20b";
+  const toNumber = (value) => {
+    if (typeof value === "number") return Number.isFinite(value) ? value : 0;
+    const text = String(value ?? "").replace(/[^\d,.-]/g, "").trim();
+    if (!text) return 0;
+    const normalized = text.includes(",")
+      ? text.replace(/\./g, "").replace(",", ".")
+      : text;
+    const number = Number(normalized);
+    return Number.isFinite(number) ? number : 0;
+  };
+  const amountOf = (row) => toNumber(row.ImporteNum ?? row.Importe);
+  const summarizeRows = (sourceRows) => {
+    const byPeriod = new Map();
+    let total = 0;
+    let inflow = 0;
+    let outflow = 0;
+    sourceRows.forEach((row) => {
+      const amount = amountOf(row);
+      const period = row.Periodo || "Sin periodo";
+      const current = byPeriod.get(period) || { ingresos: 0, egresos: 0, neto: 0, movimientos: 0 };
+      if (amount >= 0) current.ingresos += amount;
+      else current.egresos += amount;
+      current.neto += amount;
+      current.movimientos += 1;
+      byPeriod.set(period, current);
+      total += amount;
+      if (amount >= 0) inflow += amount;
+      else outflow += amount;
+    });
+    return {
+      filas: sourceRows.length,
+      importeNeto: total,
+      ingresos: inflow,
+      egresos: outflow,
+      porPeriodo: Object.fromEntries([...byPeriod.entries()].sort(([a], [b]) => a.localeCompare(b)))
+    };
+  };
+  const calculatedData = summarizeRows(rows);
   const stopWords = new Set(["para", "sobre", "entre", "hubo", "tiene", "como", "que", "los", "las", "por", "del", "una", "unos", "unas", "con", "sin", "desde", "hasta", "este", "esta", "estos", "estas"]);
   const terms = question.toLowerCase()
     .normalize("NFD")
@@ -224,6 +262,8 @@ app.post("/api/ask", async (req, res) => {
     return { row, index, score };
   });
   const matchingRows = scoredRows.filter((item) => item.score > 0);
+  const relevantRows = matchingRows.length ? matchingRows.map((item) => item.row) : rows;
+  const relevantData = summarizeRows(relevantRows);
   const selectedRows = (matchingRows.length ? matchingRows : scoredRows)
     .sort((a, b) => b.score - a.score || a.index - b.index)
     .map((item) => item.row);
@@ -265,11 +305,11 @@ app.post("/api/ask", async (req, res) => {
         messages: [
           {
             role: "system",
-            content: "Eres un analista de tesoreria. Responde en espanol usando exclusivamente los movimientos JSON recibidos. No inventes datos. Si no hay evidencia suficiente, dilo. Para importes, respeta el signo y aclara cuando una suma sea aproximada. Escribe los importes en formato argentino, por ejemplo $10.778.167,92. Responde de forma breve y concreta."
+            content: "Eres un analista de tesoreria. Responde en espanol usando exclusivamente los datos calculados y movimientos recibidos. Los datos calculados son la fuente exacta y ya fueron sumados por el sistema: no vuelvas a sumar una muestra ni estimes totales. No inventes datos. Si no hay evidencia suficiente, dilo. Para importes, respeta el signo y escribe formato argentino, por ejemplo $10.778.167,92. Responde de forma breve y concreta."
           },
           {
             role: "user",
-            content: `Pregunta: ${question}\n\nMovimientos relevantes (${context.length} de ${rows.length} filtrados):\n${JSON.stringify(context)}`
+            content: `Pregunta: ${question}\n\nDatos calculados por el dashboard (usar como fuente exacta):\n${JSON.stringify(calculatedData)}\n\nDatos calculados de coincidencias con la pregunta (usar si la pregunta pide ese concepto):\n${JSON.stringify(relevantData)}\n\nMovimientos de apoyo (${context.length} de ${rows.length} filtrados):\n${JSON.stringify(context)}`
           }
         ]
       })
