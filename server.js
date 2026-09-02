@@ -207,11 +207,25 @@ app.post("/api/ask", async (req, res) => {
   if (!question || question.length > 500) {
     return res.status(400).json({ message: "La pregunta es obligatoria y no puede superar 500 caracteres." });
   }
-  if (rows.length > 2000) {
-    return res.status(400).json({ message: "Reduce los filtros: se pueden consultar hasta 2.000 movimientos por vez." });
-  }
+  const stopWords = new Set(["para", "sobre", "entre", "hubo", "tiene", "como", "que", "los", "las", "por", "del", "una", "unos", "unas", "con", "sin", "desde", "hasta", "este", "esta", "estos", "estas"]);
+  const terms = question.toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .match(/[a-z0-9]{3,}/g)
+    ?.filter((term) => !stopWords.has(term)) || [];
+  const scoredRows = rows.map((row, index) => {
+    const searchable = Object.values(row).join(" ").toLowerCase()
+      .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    const score = terms.reduce((total, term) => total + (searchable.includes(term) ? 1 : 0), 0);
+    return { row, index, score };
+  });
+  const matchingRows = scoredRows.filter((item) => item.score > 0);
+  const selectedRows = (matchingRows.length ? matchingRows : scoredRows)
+    .sort((a, b) => b.score - a.score || a.index - b.index)
+    .slice(0, 6000)
+    .map((item) => item.row);
 
-  const context = rows.map((row) => ({
+  const context = selectedRows.map((row) => ({
     fecha: row.Fecha || "",
     periodo: row.Periodo || "",
     banco: row.Banco || "",
@@ -242,7 +256,7 @@ app.post("/api/ask", async (req, res) => {
           },
           {
             role: "user",
-            content: `Pregunta: ${question}\n\nMovimientos disponibles (${context.length}):\n${JSON.stringify(context)}`
+            content: `Pregunta: ${question}\n\nMovimientos relevantes (${context.length} de ${rows.length} filtrados):\n${JSON.stringify(context)}`
           }
         ]
       })

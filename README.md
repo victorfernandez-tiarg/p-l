@@ -102,7 +102,7 @@ GROQ_MODEL=llama-3.1-8b-instant
 
 3. Reiniciar la app y aplicar los filtros del dashboard antes de preguntar.
 
-La consulta envía a Groq los movimientos que quedan en los filtros activos, hasta 2.000 filas. No se recomienda usar esta función con datos sensibles sin revisar la política de privacidad de Groq. El acceso gratuito está sujeto a límites y disponibilidad de Groq; no es un servicio ilimitado.
+La consulta busca primero coincidencias en los movimientos que quedan en los filtros activos y envía a Groq ese contexto relevante. Si no encuentra coincidencias, usa los movimientos filtrados. No se recomienda usar esta función con datos sensibles sin revisar la política de privacidad de Groq. El acceso gratuito está sujeto a límites y disponibilidad de Groq; no es un servicio ilimitado.
 
 ## Deploy en Railway
 

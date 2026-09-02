@@ -199,17 +199,6 @@
               <p class="chart-subtitle">Escribe en cada columna para filtrar resultados en tiempo real</p>
             </div>
           </div>
-          <div class="movement-ask" aria-label="Consultar movimientos">
-            <div class="movement-ask-copy">
-              <strong>Consultar movimientos</strong>
-              <span>La consulta usa los filtros activos y los movimientos visibles.</span>
-            </div>
-            <div class="movement-ask-controls">
-              <input id="movementQuestion" type="text" maxlength="500" placeholder="Ej.: ¿Que egresos hubo por impuestos en julio?" aria-label="Pregunta sobre movimientos" />
-              <button id="askMovementBtn" class="btn btn-primary" type="button">Consultar</button>
-            </div>
-            <p id="movementAnswer" class="movement-answer" role="status" aria-live="polite"></p>
-          </div>
           <div class="table-wrap movements-table-wrap">
             <table id="movementsTable">
               <thead id="movementsHead"></thead>
@@ -222,6 +211,24 @@
       <footer class="status-bar" id="status"></footer>
 
     </main>
+
+    <button id="movementAskFab" class="movement-ask-fab" type="button" aria-label="Consultar movimientos" aria-expanded="false" title="Consultar movimientos">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>
+    </button>
+    <section id="movementAskPanel" class="movement-ask" aria-label="Consultar movimientos" hidden>
+      <div class="movement-ask-head">
+        <div class="movement-ask-copy">
+          <strong>Consultar movimientos</strong>
+          <span>Busca en todos los movimientos que cumplen los filtros activos.</span>
+        </div>
+        <button id="movementAskClose" class="movement-ask-close" type="button" aria-label="Cerrar consulta">&times;</button>
+      </div>
+      <div class="movement-ask-controls">
+        <input id="movementQuestion" type="text" maxlength="500" placeholder="Ej.: ¿Que egresos hubo por cheques rechazados?" aria-label="Pregunta sobre movimientos" />
+        <button id="askMovementBtn" class="btn btn-primary" type="button">Consultar</button>
+      </div>
+      <p id="movementAnswer" class="movement-answer" role="status" aria-live="polite"></p>
+    </section>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>

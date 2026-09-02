@@ -47,7 +47,10 @@ const els = {
   movModalChartTitle: document.getElementById("movModalChartTitle"),
   movementQuestion: document.getElementById("movementQuestion"),
   askMovementBtn: document.getElementById("askMovementBtn"),
-  movementAnswer: document.getElementById("movementAnswer")
+  movementAnswer: document.getElementById("movementAnswer"),
+  movementAskFab: document.getElementById("movementAskFab"),
+  movementAskPanel: document.getElementById("movementAskPanel"),
+  movementAskClose: document.getElementById("movementAskClose")
 };
 
 const movementColumns = [
@@ -1502,10 +1505,15 @@ async function askAboutMovements() {
   els.movementAnswer.textContent = "Consultando...";
 
   try {
+    const terms = normalizeSearchText(question).match(/[a-z0-9]{3,}/g) || [];
+    const candidateRows = state.filtered.filter((row) => {
+      const searchable = normalizeSearchText(Object.values(row).join(" "));
+      return terms.some((term) => searchable.includes(term));
+    });
     const res = await fetch("/api/ask", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, rows: state.filtered })
+      body: JSON.stringify({ question, rows: candidateRows.length ? candidateRows : state.filtered })
     });
     const payload = await res.json();
     if (!res.ok) throw new Error(payload.message || `Error HTTP ${res.status}`);
@@ -1515,6 +1523,13 @@ async function askAboutMovements() {
   } finally {
     els.askMovementBtn.disabled = false;
   }
+}
+
+function toggleMovementAsk(open) {
+  if (!els.movementAskPanel || !els.movementAskFab) return;
+  els.movementAskPanel.hidden = !open;
+  els.movementAskFab.setAttribute("aria-expanded", String(open));
+  if (open) els.movementQuestion?.focus();
 }
 
 // Listener delegado persistente: se enlaza una sola vez al contenedor de scroll
@@ -1625,6 +1640,8 @@ function bindEvents() {
 
   els.refreshBtn.addEventListener("click", () => loadData());
   els.askMovementBtn?.addEventListener("click", askAboutMovements);
+  els.movementAskFab?.addEventListener("click", () => toggleMovementAsk(true));
+  els.movementAskClose?.addEventListener("click", () => toggleMovementAsk(false));
   els.movementQuestion?.addEventListener("keydown", (event) => {
     if (event.key === "Enter") askAboutMovements();
   });
