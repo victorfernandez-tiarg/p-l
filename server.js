@@ -10,7 +10,6 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3000;
 let uploadedRows = null;
-let groqModelsCache = { ids: [], expiresAt: 0 };
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.static("public"));
@@ -197,25 +196,6 @@ app.post("/api/reset-upload", (req, res) => {
   return res.json({ source: "reset", message: "Fuente subida limpiada." });
 });
 
-async function getAvailableGroqModel(apiKey) {
-  const now = Date.now();
-  if (groqModelsCache.expiresAt > now && groqModelsCache.ids.length) {
-    return groqModelsCache.ids;
-  }
-
-  const response = await fetch("https://api.groq.com/openai/v1/models", {
-    headers: { Authorization: `Bearer ${apiKey}` }
-  });
-  const payload = await response.json();
-  if (!response.ok) {
-    throw new Error(payload.error?.message || "No se pudieron consultar los modelos disponibles de Groq.");
-  }
-
-  const ids = (payload.data || []).map((model) => model.id).filter(Boolean);
-  groqModelsCache = { ids, expiresAt: now + 5 * 60 * 1000 };
-  return ids;
-}
-
 app.post("/api/ask", async (req, res) => {
   const apiKey = process.env.GROQ_API_KEY;
   const question = String(req.body?.question || "").trim();
@@ -223,24 +203,14 @@ app.post("/api/ask", async (req, res) => {
 
   if (!apiKey) {
     return res.status(503).json({ message: "La consulta IA no esta configurada. Define GROQ_API_KEY en .env." });
-    const availableModels = await getAvailableGroqModel(apiKey);
-    const requestedModel = process.env.GROQ_MODEL;
-    const preferredModels = [
-      requestedModel,
-      "openai/gpt-oss-20b",
-      "meta-llama/llama-4-scout-17b-16e-instruct",
-      "qwen/qwen3-32b",
-      "llama-3.3-70b-versatile"
-    ].filter(Boolean);
-    const model = preferredModels.find((candidate) => availableModels.includes(candidate));
-    if (!model) {
-      return res.status(503).json({ message: "Tu cuenta de Groq no tiene un modelo de chat compatible disponible." });
-    }
-
   }
   if (!question || question.length > 500) {
     return res.status(400).json({ message: "La pregunta es obligatoria y no puede superar 500 caracteres." });
   }
+  const requestedModel = process.env.GROQ_MODEL;
+  const model = requestedModel && !["llama-3.1-8b-instant", "llama-3.3-70b-versatile", "openai/gpt-oss-120b"].includes(requestedModel)
+    ? requestedModel
+    : "openai/gpt-oss-20b";
   const stopWords = new Set(["para", "sobre", "entre", "hubo", "tiene", "como", "que", "los", "las", "por", "del", "una", "unos", "unas", "con", "sin", "desde", "hasta", "este", "esta", "estos", "estas"]);
   const terms = question.toLowerCase()
     .normalize("NFD")
@@ -311,7 +281,7 @@ app.post("/api/ask", async (req, res) => {
 
     return res.json({ answer: payload.choices?.[0]?.message?.content || "No se obtuvo una respuesta." });
   } catch (error) {
-    return res.status(502).json({ message: "No se pudo conectar con Groq.", detail: String(error) });
+    return res.status(502).json({ message: "No se pudo conectar con Groq.", detail: error.message || String(error) });
   }
 });
 

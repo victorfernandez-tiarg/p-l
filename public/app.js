@@ -1516,7 +1516,7 @@ async function askAboutMovements() {
       body: JSON.stringify({ question, rows: candidateRows.length ? candidateRows : state.filtered })
     });
     const payload = await res.json();
-    if (!res.ok) throw new Error(payload.message || `Error HTTP ${res.status}`);
+    if (!res.ok) throw new Error([payload.message, payload.detail].filter(Boolean).join(" ") || `Error HTTP ${res.status}`);
     els.movementAnswer.textContent = payload.answer;
   } catch (error) {
     els.movementAnswer.textContent = `No se pudo realizar la consulta: ${String(error.message || error)}`;
