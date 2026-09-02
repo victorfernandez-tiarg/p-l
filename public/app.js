@@ -44,7 +44,10 @@ const els = {
   compositionTopN: document.getElementById("compositionTopN"),
   compositionWrap: document.querySelector(".composition-wrapper"),
   movModalChartWrap: document.getElementById("movModalChartWrap"),
-  movModalChartTitle: document.getElementById("movModalChartTitle")
+  movModalChartTitle: document.getElementById("movModalChartTitle"),
+  movementQuestion: document.getElementById("movementQuestion"),
+  askMovementBtn: document.getElementById("askMovementBtn"),
+  movementAnswer: document.getElementById("movementAnswer")
 };
 
 const movementColumns = [
@@ -1491,6 +1494,29 @@ function renderMovementsTable() {
   }).join("");
 }
 
+async function askAboutMovements() {
+  const question = els.movementQuestion?.value.trim();
+  if (!question || !els.askMovementBtn || !els.movementAnswer) return;
+
+  els.askMovementBtn.disabled = true;
+  els.movementAnswer.textContent = "Consultando...";
+
+  try {
+    const res = await fetch("/api/ask", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ question, rows: state.filtered })
+    });
+    const payload = await res.json();
+    if (!res.ok) throw new Error(payload.message || `Error HTTP ${res.status}`);
+    els.movementAnswer.textContent = payload.answer;
+  } catch (error) {
+    els.movementAnswer.textContent = `No se pudo realizar la consulta: ${String(error.message || error)}`;
+  } finally {
+    els.askMovementBtn.disabled = false;
+  }
+}
+
 // Listener delegado persistente: se enlaza una sola vez al contenedor de scroll
 function _initPivotExpandListener() {
   const wrap = document.querySelector(".table-wrap");
@@ -1598,6 +1624,10 @@ function bindEvents() {
   });
 
   els.refreshBtn.addEventListener("click", () => loadData());
+  els.askMovementBtn?.addEventListener("click", askAboutMovements);
+  els.movementQuestion?.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") askAboutMovements();
+  });
   els.uploadBtn?.addEventListener("click", () => uploadExcel());
   els.exportCsvBtn?.addEventListener("click", () => exportFilteredCsv());
   els.resetUploadBtn?.addEventListener("click", () => resetUploadedSource());

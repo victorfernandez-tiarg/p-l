@@ -88,13 +88,34 @@ SHEETS_CSV_URL="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"
 
 3. Reiniciar la app.
 
+## Consultar movimientos con Groq
+
+La pestaña "Detalle de movimientos" incluye una consulta opcional con Groq. La clave se usa únicamente en el backend y nunca se envía al navegador.
+
+1. Crear una cuenta en Groq y generar una API key desde su consola.
+2. Agregar estas variables al archivo `.env`:
+
+```bash
+GROQ_API_KEY=tu_clave_de_groq
+GROQ_MODEL=llama-3.1-8b-instant
+```
+
+3. Reiniciar la app y aplicar los filtros del dashboard antes de preguntar.
+
+La consulta envía a Groq los movimientos que quedan en los filtros activos, hasta 2.000 filas. No se recomienda usar esta función con datos sensibles sin revisar la política de privacidad de Groq. El acceso gratuito está sujeto a límites y disponibilidad de Groq; no es un servicio ilimitado.
+
 ## Deploy en Railway
 
 1. Subir este proyecto a GitHub.
 2. Crear un proyecto en Railway desde el repo.
-3. Variables de entorno:
-   - `SHEETS_CSV_URL`: URL CSV de Google Sheets.
-4. Railway detecta `npm start` automaticamente.
+3. En Railway, abrir **Variables** y agregar:
+   - `SHEETS_CSV_URL`: URL CSV de Google Sheets, si esa es la fuente usada.
+   - `GROQ_API_KEY`: API key de Groq para habilitar las consultas.
+   - `GROQ_MODEL`: opcional; por defecto `llama-3.1-8b-instant`.
+4. Railway detecta `npm start` automaticamente y asigna el puerto mediante `PORT`.
+5. Hacer un nuevo deploy o reiniciar el servicio después de guardar las variables.
+
+No subas `.env` a GitHub. En Railway las variables se configuran desde **Variables** y la clave no queda expuesta en el frontend.
 
 ## Nota de seguridad
 

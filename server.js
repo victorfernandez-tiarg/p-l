@@ -196,6 +196,69 @@ app.post("/api/reset-upload", (req, res) => {
   return res.json({ source: "reset", message: "Fuente subida limpiada." });
 });
 
+app.post("/api/ask", async (req, res) => {
+  const apiKey = process.env.GROQ_API_KEY;
+  const question = String(req.body?.question || "").trim();
+  const rows = Array.isArray(req.body?.rows) ? req.body.rows : [];
+
+  if (!apiKey) {
+    return res.status(503).json({ message: "La consulta IA no esta configurada. Define GROQ_API_KEY en .env." });
+  }
+  if (!question || question.length > 500) {
+    return res.status(400).json({ message: "La pregunta es obligatoria y no puede superar 500 caracteres." });
+  }
+  if (rows.length > 2000) {
+    return res.status(400).json({ message: "Reduce los filtros: se pueden consultar hasta 2.000 movimientos por vez." });
+  }
+
+  const context = rows.map((row) => ({
+    fecha: row.Fecha || "",
+    periodo: row.Periodo || "",
+    banco: row.Banco || "",
+    concepto: row.Concepto || "",
+    agrupacion: row["Agrupacion Original"] || "",
+    rubro: row["Rubro Original"] || "",
+    original: row.Original || "",
+    item: row.Item || "",
+    importe: row.Importe || row.ImporteNum || "",
+    comentarios: row.Comentarios || ""
+  }));
+
+  try {
+    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: process.env.GROQ_MODEL || "llama-3.1-8b-instant",
+        temperature: 0.1,
+        max_tokens: 700,
+        messages: [
+          {
+            role: "system",
+            content: "Eres un analista de tesoreria. Responde en espanol usando exclusivamente los movimientos JSON recibidos. No inventes datos. Si no hay evidencia suficiente, dilo. Para importes, respeta el signo y aclara cuando una suma sea aproximada. Responde de forma breve y concreta."
+          },
+          {
+            role: "user",
+            content: `Pregunta: ${question}\n\nMovimientos disponibles (${context.length}):\n${JSON.stringify(context)}`
+          }
+        ]
+      })
+    });
+
+    const payload = await response.json();
+    if (!response.ok) {
+      return res.status(response.status).json({ message: payload.error?.message || "Groq rechazo la consulta." });
+    }
+
+    return res.json({ answer: payload.choices?.[0]?.message?.content || "No se obtuvo una respuesta." });
+  } catch (error) {
+    return res.status(502).json({ message: "No se pudo conectar con Groq.", detail: String(error) });
+  }
+});
+
 // Lee la primera hoja del spreadsheet usando Service Account (sin OAuth, sin expiración)
 async function readFromServiceAccount() {
   const auth = new google.auth.GoogleAuth({

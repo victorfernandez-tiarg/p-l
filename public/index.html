@@ -199,6 +199,17 @@
               <p class="chart-subtitle">Escribe en cada columna para filtrar resultados en tiempo real</p>
             </div>
           </div>
+          <div class="movement-ask" aria-label="Consultar movimientos">
+            <div class="movement-ask-copy">
+              <strong>Consultar movimientos</strong>
+              <span>La consulta usa los filtros activos y los movimientos visibles.</span>
+            </div>
+            <div class="movement-ask-controls">
+              <input id="movementQuestion" type="text" maxlength="500" placeholder="Ej.: ¿Que egresos hubo por impuestos en julio?" aria-label="Pregunta sobre movimientos" />
+              <button id="askMovementBtn" class="btn btn-primary" type="button">Consultar</button>
+            </div>
+            <p id="movementAnswer" class="movement-answer" role="status" aria-live="polite"></p>
+          </div>
           <div class="table-wrap movements-table-wrap">
             <table id="movementsTable">
               <thead id="movementsHead"></thead>
