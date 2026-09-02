@@ -260,7 +260,8 @@ app.post("/api/ask", async (req, res) => {
       body: JSON.stringify({
         model,
         temperature: 0.1,
-        max_tokens: 350,
+        max_tokens: 450,
+        reasoning_effort: "low",
         messages: [
           {
             role: "system",
@@ -279,7 +280,23 @@ app.post("/api/ask", async (req, res) => {
       return res.status(response.status).json({ message: payload.error?.message || "Groq rechazo la consulta." });
     }
 
-    return res.json({ answer: payload.choices?.[0]?.message?.content || "No se obtuvo una respuesta." });
+    const message = payload.choices?.[0]?.message || {};
+    const content = message.content;
+    const answer = Array.isArray(content)
+      ? content.map((part) => typeof part === "string" ? part : part?.text || "").join("").trim()
+      : (typeof content === "string" ? content.trim() : "");
+    const fallback = typeof message.reasoning_content === "string"
+      ? message.reasoning_content.trim()
+      : (typeof payload.output_text === "string" ? payload.output_text.trim() : "");
+
+    if (!answer && !fallback) {
+      return res.status(502).json({
+        message: "Groq respondio correctamente, pero no envio texto.",
+        detail: `finish_reason=${payload.choices?.[0]?.finish_reason || "desconocido"}`
+      });
+    }
+
+    return res.json({ answer: answer || fallback });
   } catch (error) {
     return res.status(502).json({ message: "No se pudo conectar con Groq.", detail: error.message || String(error) });
   }
