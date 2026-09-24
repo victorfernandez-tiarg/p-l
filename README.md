@@ -1,31 +1,53 @@
-# Dashboard Cashflow Historico
+# Dashboard P&L (Estado de Resultados)
 
-Dashboard web para analizar movimientos bancarios unificados desde Google Sheets con foco en cashflow historico.
+Dashboard web para analizar el mayor contable de resultados con foco en P&L: margen bruto, resultado operativo y resultado neto por periodo, unidad de negocio, dimension y cuenta.
+
+## Criterio de calculo
+
+- `Importe = Haber - Debe`. Los **ingresos quedan positivos** y los **egresos negativos**.
+- Cada cuenta se clasifica en una linea del Estado de Resultados usando `Cuentarama3` (y `Cuentarama2` como respaldo):
+
+| Prefijo | Linea del P&L | Seccion |
+|---|---|---|
+| `1.1` | Ingresos por Venta | Ingresos |
+| `1.2` | Ingresos Diferidos | Ingresos |
+| `Otros Ingresos` | Otros Ingresos | Ingresos |
+| `2.1` | Recursos Humanos | Costo de Servicios |
+| `2.2` / `Costo de Ventas` | Costos Directos | Costo de Servicios |
+| `2.3` | Gastos de Estructura | Gastos Operativos |
+| `2.4` | Gastos de Comercializacion | Gastos Operativos |
+| `2.5` | Impuestos | Otros Resultados |
+| `2.7` | One Time Costs | Otros Resultados |
+| `2.8` | No Operativos - Provisiones | Otros Resultados |
+| `3.x` | Resultados Financieros | Otros Resultados |
+
+Subtotales: `Margen Bruto = Ingresos + Costo de Servicios`, `Resultado Operativo = Margen Bruto + Gastos Operativos`, `Resultado Neto = Resultado Operativo + Otros Resultados`.
 
 ## Que incluye
 
-- Filtros jerarquicos: Agrupacion Original -> Rubro Original -> Original -> Item.
-- Filtro por Banco y rango de Periodo.
-- KPIs: Importe neto, ingresos, egresos y cantidad de movimientos.
-- Grafico de tendencia mensual por Periodo.
-- Grafico de distribucion por Rubro Original.
-- Tabla dinamica por periodo y nivel de jerarquia.
-- Endpoint `/api/movements` para cargar datos desde Google Sheets o muestra local.
+- **KPIs**: ingresos, costo de servicios, margen bruto, gastos operativos, resultado operativo y resultado neto (con % sobre ingresos).
+- **Estado de Resultados por periodo**: vista mensual o acumulada (YTD), opcion de mostrar % sobre ingresos y desglose por cuenta contable de cada linea.
+- **Puente de resultado** (waterfall) desde ingresos hasta resultado neto.
+- **Evolucion mensual**: ingresos vs egresos con la linea de resultado neto; click en un mes abre el detalle de asientos de ese periodo.
+- **Margenes %** mensuales (bruto, operativo, neto).
+- **Analisis**: composicion configurable (rubro, linea de P&L, cuenta, unidad de negocio, dimension, producto, tipo de documento), resultado por unidad de negocio, top cuentas e ingresos por dimension apilados.
+- **Tabla dinamica** con jerarquia reordenable.
+- **Detalle de asientos** con filtro por columna y exportacion a CSV.
+- **Consulta IA** opcional sobre los asientos filtrados (Groq).
 
-## Estructura esperada de columnas
+## Columnas esperadas del Excel
 
-La hoja debe contener, al menos, estas columnas:
+Hoja del mayor de P&L (por defecto la primera hoja del archivo):
 
-- `Banco`
-- `Fecha`
-- `Concepto`
-- `Importe`
-- `Saldo Pesos`
-- `Item`
-- `Original`
-- `Periodo` (formato `YYYY-MM`)
-- `Rubro Original`
-- `Agrupacion Original`
+`Fecha`, `Documento`, `Tipo de documento`, `Producto`, `Codigo cuenta`, `Cuenta`, `Dimensión valor`, `Descripción`, `Detalle`, `Empresa`, `Comprobante`, `Moneda`, `Debe`, `Haber`, `Saldo mon. principal`, `Año - mes`, `Fecha comprobante`, `Cuentarama1`, `Cuentarama2`, `Cuentarama3`, `Nivel1Dimension`
+
+## Fuentes de datos
+
+Prioridad de carga en `/api/movements`:
+
+1. Excel subido desde la UI (boton **Importar Excel**).
+2. Excel local: `data/pyl.xlsx` (configurable con `PYL_LOCAL_XLSX_PATH`).
+3. Google Sheets via Service Account, solo si `PYL_GOOGLE_SHEETS=1`.
 
 ## Ejecutar local
 
@@ -36,87 +58,26 @@ npm run dev
 
 Abrir `http://localhost:3000`.
 
-## Probar local con tus datos (sin Railway)
-
-1. Crear un archivo `.env` en la raiz del proyecto (copiando `.env.example`).
-2. Elegir una sola fuente de datos:
-
-Opcion A - Google Sheets por URL CSV:
+## Variables de entorno
 
 ```bash
-SHEETS_CSV_URL=https://docs.google.com/spreadsheets/d/e/TU_HOJA/pub?output=csv
+PORT=3000
+PYL_LOCAL_XLSX_PATH=./data/pyl.xlsx   # opcional
+PYL_SHEET_NAME=hoja1                  # opcional, por defecto la primera hoja
+
+# Consulta IA (opcional)
+GROQ_API_KEY=...
+GROQ_MODEL=openai/gpt-oss-20b
+
+# Google Sheets (opcional, requiere PYL_GOOGLE_SHEETS=1)
+PYL_GOOGLE_SHEETS=1
+GOOGLE_SHEETS_CLIENT_EMAIL=...
+GOOGLE_SHEETS_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----\n"
+GOOGLE_SHEETS_SPREADSHEET_ID=...
+GOOGLE_SHEETS_SHEET_NAME=...
 ```
 
-Opcion B - Archivo CSV local (recomendado para pruebas privadas):
+## Notas
 
-```bash
-SHEETS_LOCAL_CSV_PATH=./data/movimientos.csv
-```
-
-3. Ejecutar:
-
-```bash
-npm run dev
-```
-
-Notas:
-
-- Si defines `SHEETS_LOCAL_CSV_PATH`, el backend usa ese archivo primero.
-- Si no hay variables, el dashboard muestra los datos de ejemplo.
-
-## Cargar Excel local desde el dashboard
-
-Tambien puedes cargar un archivo Excel sin configurar variables:
-
-1. Levantar la app con `npm run dev`.
-2. Abrir el dashboard y usar "Cargar Excel local (.xlsx o .xls)".
-3. Click en "Subir Excel".
-4. El dashboard pasa a usar esa fuente (source: `uploaded-excel`) hasta reiniciar servidor o presionar "Volver a fuente base".
-
-Requisito:
-
-- La primera hoja del Excel debe tener los encabezados esperados (Banco, Fecha, Importe, Periodo, Rubro Original, Agrupacion Original, Original, Item, etc.).
-
-## Conectar Google Sheets
-
-1. Publicar la hoja como CSV o usar una URL CSV accesible.
-2. Definir la variable de entorno:
-
-```bash
-SHEETS_CSV_URL="https://docs.google.com/spreadsheets/d/e/.../pub?output=csv"
-```
-
-3. Reiniciar la app.
-
-## Consultar movimientos con Groq
-
-La pestaña "Detalle de movimientos" incluye una consulta opcional con Groq. La clave se usa únicamente en el backend y nunca se envía al navegador.
-
-1. Crear una cuenta en Groq y generar una API key desde su consola.
-2. Agregar estas variables al archivo `.env`:
-
-```bash
-GROQ_API_KEY=tu_clave_de_groq
-GROQ_MODEL=
-```
-
-3. Reiniciar la app y aplicar los filtros del dashboard antes de preguntar.
-
-La consulta busca primero coincidencias en los movimientos que quedan en los filtros activos y envía a Groq ese contexto relevante. Si no encuentra coincidencias, usa los movimientos filtrados. No se recomienda usar esta función con datos sensibles sin revisar la política de privacidad de Groq. El acceso gratuito está sujeto a límites y disponibilidad de Groq; no es un servicio ilimitado.
-
-## Deploy en Railway
-
-1. Subir este proyecto a GitHub.
-2. Crear un proyecto en Railway desde el repo.
-3. En Railway, abrir **Variables** y agregar:
-   - `SHEETS_CSV_URL`: URL CSV de Google Sheets, si esa es la fuente usada.
-   - `GROQ_API_KEY`: API key de Groq para habilitar las consultas.
-   - `GROQ_MODEL`: opcional; si se deja vacío, el backend elige automáticamente un modelo de chat disponible.
-4. Railway detecta `npm start` automaticamente y asigna el puerto mediante `PORT`.
-5. Hacer un nuevo deploy o reiniciar el servicio después de guardar las variables.
-
-No subas `.env` a GitHub. En Railway las variables se configuran desde **Variables** y la clave no queda expuesta en el frontend.
-
-## Nota de seguridad
-
-Si la hoja no puede ser publica, usar un backend con Service Account de Google y no exponer credenciales en frontend.
+- `_backup_cashflow/` conserva el codigo del dashboard de cashflow del que se partio.
+- `.env` esta en `.gitignore`: nunca subas credenciales al repositorio.

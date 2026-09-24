@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Cashflow &middot; Tesoreria</title>
+    <title>P&amp;L &middot; Estado de Resultados</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -16,8 +16,8 @@
       <div class="topbar-brand">
         <img src="logo_empresa.png" alt="Logo empresa" class="topbar-logo" />
         <div>
-          <p class="topbar-overline">TESORERIA INTERNA</p>
-          <h1 class="topbar-title">Dashboard de Cashflow Historico</h1>
+          <p class="topbar-overline">CONTROL DE GESTION</p>
+          <h1 class="topbar-title">Dashboard de P&amp;L &middot; Estado de Resultados</h1>
         </div>
       </div>
       <div class="topbar-actions">
@@ -31,83 +31,175 @@
 
     <main class="main">
 
+      <!-- FUENTE DE DATOS -->
+      <section class="panel">
+        <div class="table-header">
+          <div>
+            <p class="section-label">Fuente de datos</p>
+            <p class="chart-subtitle">Por defecto usa <code>data/pyl.xlsx</code>. Podes subir otro mayor de P&amp;L con el mismo formato.</p>
+          </div>
+          <div class="upload-controls">
+            <input type="file" id="excelFile" accept=".xlsx,.xls" />
+            <span class="file-name-badge" id="fileName">Sin archivo seleccionado</span>
+            <button id="uploadBtn" class="btn btn-secondary" type="button">&uarr; Importar Excel</button>
+            <button id="resetUploadBtn" class="btn btn-ghost" type="button">Volver al origen</button>
+            <button id="exportCsvBtn" class="btn btn-ghost" type="button">&darr; Exportar CSV</button>
+          </div>
+        </div>
+        <div id="uploadBanner" class="upload-banner" style="display:none"></div>
+      </section>
+
+      <!-- FILTROS GLOBALES -->
+      <section class="panel filters-section">
+        <p class="section-label">Filtros globales</p>
+        <div class="filters-grid">
+          <label class="filter-label">
+            Desde Periodo
+            <select id="fromPeriod"></select>
+          </label>
+          <label class="filter-label">
+            Hasta Periodo
+            <select id="toPeriod"></select>
+          </label>
+          <label class="filter-label">
+            Empresa
+            <div class="ms" id="empresaFilter"></div>
+          </label>
+          <label class="filter-label">
+            Categoria
+            <div class="ms" id="categoriaFilter"></div>
+          </label>
+          <label class="filter-label">
+            Rubro
+            <div class="ms" id="rubroFilter"></div>
+          </label>
+          <label class="filter-label">
+            Cuenta
+            <div class="ms" id="cuentaFilter"></div>
+          </label>
+          <label class="filter-label">
+            Unidad de Negocio
+            <div class="ms" id="unidadFilter"></div>
+          </label>
+          <label class="filter-label">
+            Dimension
+            <div class="ms" id="dimensionFilter"></div>
+          </label>
+          <label class="filter-label">
+            Producto
+            <div class="ms" id="productoFilter"></div>
+          </label>
+          <label class="filter-label">
+            Tipo de documento
+            <div class="ms" id="tipoDocFilter"></div>
+          </label>
+        </div>
+        <div class="filters-footer">
+          <button id="clearFiltersBtn" class="btn btn-ghost" type="button">Limpiar filtros</button>
+          <span class="chart-subtitle" id="filterSummary"></span>
+        </div>
+      </section>
+
+      <!-- KPIs -->
+      <section class="metrics-grid" id="metrics"></section>
+
       <nav class="tabs-nav" aria-label="Navegacion principal">
-        <button type="button" class="tab-btn tab-btn-active" data-tab="dashboardTab">Dashboard</button>
+        <button type="button" class="tab-btn tab-btn-active" data-tab="plTab">Estado de Resultados</button>
+        <button type="button" class="tab-btn" data-tab="analysisTab">Analisis</button>
         <button type="button" class="tab-btn" data-tab="pivotTab">Tabla dinamica</button>
-        <button type="button" class="tab-btn" data-tab="movementsTab">Detalle de movimientos</button>
+        <button type="button" class="tab-btn" data-tab="movementsTab">Detalle de asientos</button>
       </nav>
 
-      <section id="dashboardTab" class="tab-pane tab-pane-active" aria-label="Dashboard">
-        <!-- FILTROS -->
-        <section class="panel filters-section">
-          <p class="section-label">Filtros</p>
-          <div class="filters-grid">
-            <label class="filter-label">
-              Banco
-              <div class="ms" id="bankFilter"></div>
-            </label>
-            <label class="filter-label">
-              Agrupacion Original
-              <div class="ms" id="agrupacionFilter"></div>
-            </label>
-            <label class="filter-label">
-              Rubro Original
-              <div class="ms" id="rubroFilter"></div>
-            </label>
-            <label class="filter-label">
-              Original
-              <div class="ms" id="originalFilter"></div>
-            </label>
-            <label class="filter-label">
-              Item
-              <div class="ms" id="itemFilter"></div>
-            </label>
-            <label class="filter-label">
-              Desde Periodo
-              <select id="fromPeriod"></select>
-            </label>
-            <label class="filter-label">
-              Hasta Periodo
-              <select id="toPeriod"></select>
-            </label>
-          </div>
-        </section>
+      <!-- TAB 1: ESTADO DE RESULTADOS -->
+      <section id="plTab" class="tab-pane tab-pane-active" aria-label="Estado de Resultados">
 
-        <!-- GRAFICOS: Cashflow principal (ancho completo) -->
         <div class="panel chart-card">
           <div class="chart-header">
             <div>
-              <h2>Flujo de Caja Mensual</h2>
-              <span class="chart-subtitle">Neto mensual — hover para detalle por mes</span>
+              <h2>Puente de Resultado</h2>
+              <span class="chart-subtitle">Desde ingresos hasta resultado neto segun los filtros activos</span>
+            </div>
+          </div>
+          <div class="composition-wrapper">
+            <canvas id="bridgeChart"></canvas>
+          </div>
+        </div>
+
+        <section class="panel table-section">
+          <div class="table-header">
+            <div>
+              <h2>Estado de Resultados por Periodo</h2>
+              <p class="chart-subtitle">Click en &#9656; para abrir las cuentas de cada linea &middot; Click en un mes de la fila TOTAL para ver el detalle</p>
+            </div>
+            <div class="pl-view-controls">
+              <label>
+                Vista
+                <select id="plViewMode">
+                  <option value="monthly">Mensual</option>
+                  <option value="ytd">Acumulado (YTD)</option>
+                </select>
+              </label>
+              <label class="pl-toggle">
+                <input type="checkbox" id="plShowPct" />
+                <span>Mostrar % s/ ingresos</span>
+              </label>
+            </div>
+          </div>
+          <div class="table-wrap pl-table-wrap">
+            <table id="plTable"></table>
+          </div>
+        </section>
+
+        <div class="panel chart-card">
+          <div class="chart-header">
+            <div>
+              <h2>Evolucion Mensual</h2>
+              <span class="chart-subtitle">Ingresos vs egresos y resultado neto &mdash; click en un mes para el detalle</span>
             </div>
           </div>
           <canvas id="trendChart"></canvas>
         </div>
 
+        <div class="panel chart-card">
+          <div class="chart-header">
+            <div>
+              <h2>Margenes sobre Ingresos</h2>
+              <span class="chart-subtitle">Margen bruto, operativo y neto en % de los ingresos del mes</span>
+            </div>
+          </div>
+          <canvas id="marginChart"></canvas>
+        </div>
+      </section>
+
+      <!-- TAB 2: ANALISIS -->
+      <section id="analysisTab" class="tab-pane" aria-label="Analisis">
         <div class="panel chart-card chart-interactive">
           <div class="chart-header">
             <div class="donut-header-main">
-              <h2 id="donutTitle">Cascada de Flujo por Agrupacion</h2>
-              <span class="chart-subtitle" id="donutSubtitle">Impacto acumulado del flujo segun los filtros activos</span>
+              <h2 id="compositionTitle">Composicion por Rubro</h2>
+              <span class="chart-subtitle" id="compositionSubtitle">Impacto acumulado segun los filtros activos</span>
             </div>
           </div>
-          <div class="composition-controls" aria-label="Criterios de la cascada de flujo">
+          <div class="composition-controls" aria-label="Criterios de composicion">
             <label>
               Criterio
               <select id="compositionGroupBy">
-                <option value="Agrupacion Original">Agrupacion</option>
-                <option value="Rubro Original">Rubro</option>
-                <option value="Original">Original</option>
-                <option value="Item">Item</option>
+                <option value="Rubro">Rubro</option>
+                <option value="LineaPL">Linea de P&amp;L</option>
+                <option value="Cuenta">Cuenta</option>
+                <option value="UnidadNegocio">Unidad de Negocio</option>
+                <option value="Dimension">Dimension</option>
+                <option value="Producto">Producto</option>
+                <option value="TipoDocumento">Tipo de documento</option>
               </select>
             </label>
             <label>
               Metrica
               <select id="compositionMetric">
                 <option value="net">Neto</option>
-                <option value="turnover">Volumen (Ing+Egr)</option>
-                <option value="inflow">Ingresos</option>
                 <option value="outflow">Egresos</option>
+                <option value="inflow">Ingresos</option>
+                <option value="turnover">Volumen (Ing+Egr)</option>
               </select>
             </label>
             <label>
@@ -121,55 +213,43 @@
             </label>
           </div>
           <div class="composition-wrapper">
-            <canvas id="agrupacionChart"></canvas>
+            <canvas id="compositionChart"></canvas>
           </div>
         </div>
 
         <div class="panel chart-card chart-interactive">
           <div class="chart-header">
-            <h2>Top Rubros Originales</h2>
-            <span class="chart-subtitle">Click en barra &rarr; filtra la tabla</span>
+            <div>
+              <h2>Resultado por Unidad de Negocio</h2>
+              <span class="chart-subtitle">Click en una barra &rarr; aplica el filtro de unidad</span>
+            </div>
           </div>
-          <canvas id="rubroChart"></canvas>
+          <canvas id="unidadChart"></canvas>
+        </div>
+
+        <div class="panel chart-card chart-interactive">
+          <div class="chart-header">
+            <div>
+              <h2>Top Cuentas</h2>
+              <span class="chart-subtitle">Mayor impacto absoluto en el resultado &mdash; click para filtrar</span>
+            </div>
+          </div>
+          <canvas id="cuentaChart"></canvas>
+        </div>
+
+        <div class="panel chart-card">
+          <div class="chart-header">
+            <div>
+              <h2>Ingresos por Dimension &mdash; Evolucion</h2>
+              <span class="chart-subtitle">Top 6 dimensiones por ingresos, apiladas por mes</span>
+            </div>
+          </div>
+          <canvas id="dimensionTrendChart"></canvas>
         </div>
       </section>
 
+      <!-- TAB 3: TABLA DINAMICA -->
       <section id="pivotTab" class="tab-pane" aria-label="Tabla dinamica">
-        <section class="panel filters-section">
-          <p class="section-label">Filtros (Tabla Dinamica)</p>
-          <div class="filters-grid">
-            <label class="filter-label">
-              Banco
-              <div class="ms" id="pivotBankFilter"></div>
-            </label>
-            <label class="filter-label">
-              Agrupacion Original
-              <div class="ms" id="pivotAgrupacionFilter"></div>
-            </label>
-            <label class="filter-label">
-              Rubro Original
-              <div class="ms" id="pivotRubroFilter"></div>
-            </label>
-            <label class="filter-label">
-              Original
-              <div class="ms" id="pivotOriginalFilter"></div>
-            </label>
-            <label class="filter-label">
-              Item
-              <div class="ms" id="pivotItemFilter"></div>
-            </label>
-            <label class="filter-label">
-              Desde Periodo
-              <select id="pivotFromPeriod"></select>
-            </label>
-            <label class="filter-label">
-              Hasta Periodo
-              <select id="pivotToPeriod"></select>
-            </label>
-          </div>
-        </section>
-
-        <!-- TABLA DINAMICA EXPANDIBLE -->
         <section class="panel table-section">
           <div class="table-header">
             <div>
@@ -181,7 +261,7 @@
               </div>
             </div>
             <div style="display:flex;gap:8px;flex-shrink:0">
-              <button id="expandAllBtn"   class="btn btn-ghost" style="font-size:12px">&#9660; Expandir todo</button>
+              <button id="expandAllBtn" class="btn btn-ghost" style="font-size:12px">&#9660; Expandir todo</button>
               <button id="collapseAllBtn" class="btn btn-ghost" style="font-size:12px">&#9650; Colapsar todo</button>
             </div>
           </div>
@@ -191,11 +271,12 @@
         </section>
       </section>
 
-      <section id="movementsTab" class="tab-pane" aria-label="Detalle de movimientos">
+      <!-- TAB 4: DETALLE -->
+      <section id="movementsTab" class="tab-pane" aria-label="Detalle de asientos">
         <section class="panel table-section">
           <div class="table-header">
             <div>
-              <h2>Detalle de Movimientos</h2>
+              <h2>Detalle de Asientos</h2>
               <p class="chart-subtitle">Escribe en cada columna para filtrar resultados en tiempo real</p>
             </div>
           </div>
@@ -212,43 +293,44 @@
 
     </main>
 
-    <button id="movementAskFab" class="movement-ask-fab" type="button" aria-label="Consultar movimientos" aria-expanded="false" title="Consultar movimientos">
+    <button id="movementAskFab" class="movement-ask-fab" type="button" aria-label="Consultar P&amp;L" aria-expanded="false" title="Consultar P&amp;L">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15a4 4 0 0 1-4 4H8l-5 3V7a4 4 0 0 1 4-4h10a4 4 0 0 1 4 4z"/><path d="M8 10h.01M12 10h.01M16 10h.01"/></svg>
     </button>
-    <section id="movementAskPanel" class="movement-ask" aria-label="Consultar movimientos" hidden>
+    <section id="movementAskPanel" class="movement-ask" aria-label="Consultar P&amp;L" hidden>
       <div class="movement-ask-head">
         <div class="movement-ask-copy">
-          <strong>Consultar movimientos</strong>
-            <span id="movementAskScope">Busca en todos los movimientos que cumplen los filtros activos.</span>
+          <strong>Consultar el P&amp;L</strong>
+          <span id="movementAskScope">Busca en todos los asientos que cumplen los filtros activos.</span>
         </div>
         <button id="movementAskClose" class="movement-ask-close" type="button" aria-label="Cerrar consulta">&times;</button>
       </div>
       <div class="movement-ask-controls">
-        <input id="movementQuestion" type="text" maxlength="500" placeholder="Ej.: ¿Que egresos hubo por cheques rechazados?" aria-label="Pregunta sobre movimientos" />
+        <input id="movementQuestion" type="text" maxlength="500" placeholder="Ej.: ¿Cuanto gastamos en honorarios especiales en 2026?" aria-label="Pregunta sobre el P&amp;L" />
         <button id="askMovementBtn" class="btn btn-primary" type="button">Consultar</button>
       </div>
+      <button id="clearMovementQueryBtn" class="movement-query-clear" type="button" hidden>Quitar filtro de la consulta</button>
       <p id="movementAnswer" class="movement-answer" role="status" aria-live="polite"></p>
     </section>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0"></script>
     <script src="app.js" type="module"></script>
 
-    <!-- Modal detalle de movimientos por mes -->
+    <!-- Modal detalle por periodo / linea -->
     <div id="movModal" class="mov-modal-overlay" style="display:none" role="dialog" aria-modal="true" aria-labelledby="movModalTitle">
       <div class="mov-modal">
         <div class="mov-modal-header">
           <div>
-            <h2 id="movModalTitle">Movimientos</h2>
+            <h2 id="movModalTitle">Detalle</h2>
             <p class="mov-modal-subtitle" id="movModalSubtitle"></p>
           </div>
           <button class="mov-modal-close" id="movModalClose" aria-label="Cerrar">&times;</button>
         </div>
         <div class="mov-modal-summary" id="movModalSummary"></div>
-        <section class="mov-modal-chart" id="movModalChartWrap" style="display:none" aria-label="Cascada por item del mes">
+        <section class="mov-modal-chart" id="movModalChartWrap" style="display:none" aria-label="Aporte por cuenta">
           <div class="mov-modal-chart-head">
-            <h3 id="movModalChartTitle">Aportes por Item</h3>
-            <span class="chart-subtitle">Impacto de cada item en el neto del mes</span>
+            <h3 id="movModalChartTitle">Aportes por Cuenta</h3>
+            <span class="chart-subtitle">Impacto de cada cuenta en el resultado</span>
           </div>
           <div class="mov-modal-chart-canvas-wrap">
             <canvas id="movModalWaterfall"></canvas>
@@ -259,10 +341,10 @@
             <thead>
               <tr>
                 <th>Fecha</th>
-                <th>Banco</th>
-                <th>Concepto</th>
-                <th>Rubro Original</th>
-                <th>Original</th>
+                <th>Documento</th>
+                <th>Cuenta</th>
+                <th>Dimension</th>
+                <th>Descripcion</th>
                 <th style="text-align:right">Importe</th>
               </tr>
             </thead>
